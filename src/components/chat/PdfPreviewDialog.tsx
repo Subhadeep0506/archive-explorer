@@ -17,7 +17,7 @@ export function PdfPreviewDialog({ pdfUrl, children }: PdfPreviewDialogProps) {
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-2xl p-0">
+      <DialogContent className="max-w-2xl w-[90vw] max-h-[85vh] p-0 flex flex-col overflow-hidden">
         <DialogHeader className="p-4 border-b bg-muted/50">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2 text-base">
@@ -32,7 +32,7 @@ export function PdfPreviewDialog({ pdfUrl, children }: PdfPreviewDialogProps) {
             </a>
           </div>
         </DialogHeader>
-        <div className="aspect-[3/4] bg-muted flex items-center justify-center">
+        <div className="flex-1 min-h-0 bg-muted flex items-center justify-center overflow-auto">
           <div className="text-center p-8">
             <div className="w-24 h-32 mx-auto mb-4 bg-background rounded-lg shadow-lg flex items-center justify-center border">
               <FileText className="w-12 h-12 text-muted-foreground" />
