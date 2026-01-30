@@ -9,7 +9,6 @@ interface ChatSidebarProps {
   activeConversationId: string | null;
   onSelectConversation: (id: string) => void;
   onNewChat: () => void;
-  onOpenPdf: (url: string) => void;
 }
 
 export function ChatSidebar({
@@ -17,7 +16,6 @@ export function ChatSidebar({
   activeConversationId,
   onSelectConversation,
   onNewChat,
-  onOpenPdf,
 }: ChatSidebarProps) {
   return (
     <div className="w-72 border-r bg-sidebar-background flex flex-col h-full">
@@ -31,8 +29,8 @@ export function ChatSidebar({
         </Button>
       </div>
 
-      <ScrollArea className="flex-1 p-3">
-        <div className="space-y-2">
+      <ScrollArea className="flex-1 px-2 py-2">
+        <div className="space-y-1">
           {conversations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
               No conversations yet
@@ -44,10 +42,6 @@ export function ChatSidebar({
                 conversation={conv}
                 isActive={conv.id === activeConversationId}
                 onClick={() => onSelectConversation(conv.id)}
-                onOpenPdf={(e) => {
-                  e.stopPropagation();
-                  onOpenPdf(conv.pdfUrl);
-                }}
               />
             ))
           )}
