@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { mockPapers } from '@/data/mockPapers';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
@@ -16,11 +16,13 @@ import {
   Sparkles,
   Copy,
   ExternalLink,
+  MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function PaperDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const paper = mockPapers.find((p) => p.id === id);
 
   if (!paper) {
@@ -132,6 +134,13 @@ The paper suggests several promising research directions for future work, includ
               </div>
 
               <div className="flex flex-wrap gap-3 mb-6">
+                <Button 
+                  onClick={() => navigate(`/paper/${id}/chat`)}
+                  className="bg-chip-violet hover:bg-chip-violet/90"
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Chat with Paper
+                </Button>
                 <a href={paper.pdfUrl} target="_blank" rel="noopener noreferrer">
                   <Button className="bg-chip-coral hover:bg-chip-coral/90">
                     <FileText className="w-4 h-4 mr-2" />
