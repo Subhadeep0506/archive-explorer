@@ -1,6 +1,6 @@
 import { ArrowLeft, FileText, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { PdfPreviewPopover } from './PdfPreviewPopover';
+import { PdfPreviewDialog } from './PdfPreviewDialog';
 
 interface ChatHeaderProps {
   title: string;
@@ -21,12 +21,12 @@ export function ChatHeader({ title, pdfUrl, onBack, onSummarize }: ChatHeaderPro
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <PdfPreviewPopover pdfUrl={pdfUrl}>
+          <PdfPreviewDialog pdfUrl={pdfUrl}>
             <Button variant="outline" size="sm">
               <FileText className="w-4 h-4 mr-2 text-chip-coral" />
               View PDF
             </Button>
-          </PdfPreviewPopover>
+          </PdfPreviewDialog>
 
           <Button 
             variant="outline" 

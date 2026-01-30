@@ -168,7 +168,6 @@ export default function ChatScreen() {
         activeConversationId={activeConversationId}
         onSelectConversation={setActiveConversationId}
         onNewChat={handleNewChat}
-        onOpenPdf={handleOpenPdf}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
