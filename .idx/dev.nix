@@ -8,6 +8,7 @@
   packages = [
     pkgs.bun
     pkgs.uv
+    pkgs.python313
     pkgs.htop
     pkgs.docker
   ];
