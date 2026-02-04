@@ -6,18 +6,34 @@ from typing import Optional
 from botocore.exceptions import NoCredentialsError, ClientError
 from fastapi import UploadFile, HTTPException
 import uuid
-from ..core.logger import SingletonLogger
+from ..logger import SingletonLogger
+from .base import StorageProvider
 
 
-class SupabaseStorage:
-    def __init__(self):
-        self.endpoint_url = os.getenv("S3_STORAGE_URL")
-        self.key_id = os.getenv("S3_ACCESS_KEY_ID")
-        self.application_key = os.getenv("S3_SECRET_ACCESS_KEY")
-        self.bucket_name = os.getenv("S3_STORAGE_BUCKET_NAME")
-        self.region = os.getenv("S3_STORAGE_REGION")
-        self.service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-        self.supabase_api_key = os.getenv("SUPABASE_API_KEY")
+class SupabaseStorage(StorageProvider):
+    ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png"]
+
+    def __init__(
+        self,
+        endpoint_url: Optional[str] = None,
+        key_id: Optional[str] = None,
+        application_key: Optional[str] = None,
+        bucket_name: Optional[str] = None,
+        region_name: Optional[str] = None,
+        service_role_key: Optional[str] = None,
+        supabase_api_key: Optional[str] = None,
+        s3_client: Optional[object] = None,
+    ):
+        # Load from env if not provided
+        self.endpoint_url = endpoint_url or os.getenv("S3_STORAGE_URL")
+        self.key_id = key_id or os.getenv("S3_ACCESS_KEY_ID")
+        self.application_key = application_key or os.getenv("S3_SECRET_ACCESS_KEY")
+        self.bucket_name = bucket_name or os.getenv("S3_STORAGE_BUCKET_NAME")
+        self.region_name = region_name or os.getenv("S3_STORAGE_REGION")
+        self.service_role_key = service_role_key or os.getenv(
+            "SUPABASE_SERVICE_ROLE_KEY"
+        )
+        self.supabase_api_key = supabase_api_key or os.getenv("SUPABASE_API_KEY")
 
         if not all(
             [self.endpoint_url, self.key_id, self.application_key, self.bucket_name]
@@ -31,13 +47,18 @@ class SupabaseStorage:
         # Extract project reference for REST API calls
         self.project_ref = self.endpoint_url.split(".")[0].replace("https://", "")
 
-        self.s3_client = boto3.client(
-            "s3",
-            endpoint_url=self.endpoint_url,
-            aws_access_key_id=self.key_id,
-            aws_secret_access_key=self.application_key,
-            region_name=self.region,
-        )
+        # Allow dependency injection of a preconfigured client
+        if s3_client is None:
+            client_kwargs = {
+                "endpoint_url": self.endpoint_url,
+                "aws_access_key_id": self.key_id,
+                "aws_secret_access_key": self.application_key,
+            }
+            if self.region_name:
+                client_kwargs["region_name"] = self.region_name
+            self.s3_client = boto3.client("s3", **client_kwargs)
+        else:
+            self.s3_client = s3_client
 
         # Ensure bucket exists and is public
         self._ensure_bucket_exists_and_public()
@@ -104,8 +125,7 @@ class SupabaseStorage:
     ) -> str:
         """Upload file to Supabase Storage and return the file key"""
         # Validate file type
-        allowed_types = ["image/jpeg", "image/png"]
-        if file.content_type not in allowed_types:
+        if not SupabaseStorage.is_allowed_content_type(file.content_type):
             raise HTTPException(
                 status_code=400, detail="Only JPEG and PNG files are allowed"
             )
@@ -115,7 +135,7 @@ class SupabaseStorage:
         unique_filename = f"{uuid.uuid4()}.{file_extension}"
 
         # Create the key path
-        key = f"{user_id}/{folder}/{unique_filename}"
+        key = SupabaseStorage.build_key(user_id, folder, unique_filename)
 
         try:
             # Read file content
@@ -144,7 +164,7 @@ class SupabaseStorage:
             SingletonLogger().get_logger().error(f"Upload failed: {e}")
             raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
-    def get_file_url(self, file_key: str) -> str:
+    def get_file_url(self, file_key: str) -> Optional[str]:
         """Generate public URL for the file"""
         if not file_key:
             return None
@@ -186,13 +206,18 @@ class SupabaseStorage:
         """
         try:
             name = filename or f"{uuid.uuid4()}.png"
-            key = f"{user_id}/{folder}/{name}"
+            key = SupabaseStorage.build_key(user_id, folder, name)
+            # Upload via S3-compatible API
             await asyncio.to_thread(
                 self.s3_client.put_object,
                 Bucket=self.bucket_name,
                 Key=key,
                 Body=content,
                 ContentType=content_type,
+                ACL="public-read",
+            )
+            SingletonLogger().get_logger().info(
+                f"Uploaded thumbnail to storage: bucket={self.bucket_name} key={key} bytes={len(content)}"
             )
             return key
         except NoCredentialsError as e:
@@ -207,6 +232,63 @@ class SupabaseStorage:
             SingletonLogger().get_logger().error(f"Upload failed: {e}")
             raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
+    @classmethod
+    def from_env(cls) -> "SupabaseStorage":
+        """Factory constructor using environment variables."""
+        return cls()
+
+    @staticmethod
+    def is_allowed_content_type(content_type: str) -> bool:
+        return content_type in SupabaseStorage.ALLOWED_CONTENT_TYPES
+
+    @staticmethod
+    def build_key(user_id: int, folder: str, filename: str) -> str:
+        return f"{user_id}/{folder}/{filename}"
+
+    async def download_file(self, file_key: str) -> Optional[bytes]:
+        """Download file bytes from Supabase Storage."""
+        try:
+            response = await asyncio.to_thread(
+                self.s3_client.get_object, Bucket=self.bucket_name, Key=file_key
+            )
+            body = response.get("Body")
+            if body is None:
+                return None
+            content = await asyncio.to_thread(body.read)
+            return content
+        except ClientError as e:
+            SingletonLogger().get_logger().error(
+                f"Client error downloading file {file_key}: {e}"
+            )
+            return None
+        except Exception as e:
+            SingletonLogger().get_logger().error(
+                f"Error downloading file {file_key}: {e}"
+            )
+            return None
+
+    async def file_exists(self, file_key: str) -> bool:
+        """Check if a file exists in Supabase Storage bucket via HEAD."""
+        try:
+            await asyncio.to_thread(
+                self.s3_client.head_object, Bucket=self.bucket_name, Key=file_key
+            )
+            return True
+        except ClientError as e:
+            # Not found codes vary by provider; treat 404/NoSuchKey as missing
+            code = e.response.get("Error", {}).get("Code")
+            if code in ("404", "NotFound", "NoSuchKey"):
+                return False
+            SingletonLogger().get_logger().error(
+                f"Error checking existence for {file_key}: {e}"
+            )
+            return False
+        except Exception as e:
+            SingletonLogger().get_logger().error(
+                f"Unexpected error checking existence for {file_key}: {e}"
+            )
+            return False
+
 
 # Global storage instance
-storage = SupabaseStorage()
+storage = SupabaseStorage.from_env()

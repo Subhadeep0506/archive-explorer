@@ -5,10 +5,13 @@ from ..database.db import session_pool
 from ..errors import DatabaseConnectionError
 from ..model.profile import Profile
 from ..schema.profile import ProfileCreate, ProfileUpdate, ProfileResponse
-from ..core.storage import storage
+from ..core.storage.supabase import SupabaseStorage
 from ..core.logger import SingletonLogger
 
 logger = SingletonLogger().get_logger()
+
+# Instantiate storage provider (Supabase)
+storage = SupabaseStorage.from_env()
 
 
 async def get_profile(user_id: int) -> ProfileResponse:

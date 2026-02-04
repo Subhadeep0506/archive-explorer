@@ -43,6 +43,9 @@ async def feed(
     max_results: int = 10,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
+    include_thumbnails: bool = False,
+    max_thumbnail_concurrency: int = 3,
+    thumbnail_timeout_sec: int = 20,
     user_id: int = Depends(get_current_user),
 ):
     """Fetch arXiv feed by topics (OR-combined)."""
@@ -52,6 +55,9 @@ async def feed(
         max_results=max_results,
         sort_by=sort_by,
         sort_order=sort_order,
+        include_thumbnails=include_thumbnails,
+        max_thumbnail_concurrency=max_thumbnail_concurrency,
+        thumbnail_timeout_sec=thumbnail_timeout_sec,
         user_id=user_id,
     )
 
@@ -63,6 +69,9 @@ async def feed_string(
     max_results: int = 10,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
+    include_thumbnails: bool = False,
+    max_thumbnail_concurrency: int = 3,
+    thumbnail_timeout_sec: int = 20,
     user_id: int = Depends(get_current_user),
 ):
     """Fetch arXiv feed by a comma-separated topic string."""
@@ -72,6 +81,9 @@ async def feed_string(
         max_results=max_results,
         sort_by=sort_by,
         sort_order=sort_order,
+        include_thumbnails=include_thumbnails,
+        max_thumbnail_concurrency=max_thumbnail_concurrency,
+        thumbnail_timeout_sec=thumbnail_timeout_sec,
         user_id=user_id,
     )
 
