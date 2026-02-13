@@ -6,7 +6,7 @@ class ArxivEntry(BaseModel):
     id: Optional[str] = None
     arxiv_id: Optional[str] = None
     title: Optional[str] = None
-    abstract: Optional[str] = Field(default=None, alias="summary")
+    abstract: Optional[str] = None
     authors: List[str] = []
     pdf_url: Optional[str] = None
     paper_url: Optional[str] = None

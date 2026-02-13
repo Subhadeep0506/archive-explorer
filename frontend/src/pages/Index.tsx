@@ -1,96 +1,129 @@
-import { useState } from 'react';
-import { Navbar } from '@/components/Navbar';
-import { FilterSidebar } from '@/components/FilterSidebar';
-import { ViewToggle } from '@/components/ViewToggle';
-import { PaperCard } from '@/components/PaperCard';
-import { PapersTable } from '@/components/PapersTable';
-import { Pagination } from '@/components/Pagination';
-import { Filters, ViewMode } from '@/types/paper';
+import { useMemo, useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import {
-  mockPapers,
-  topicFilters,
-  countryFilters,
-  institutionFilters,
-  yearFilters,
-} from '@/data/mockPapers';
-import { Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-
-const ITEMS_PER_PAGE = 6;
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { Loader2, Search, RefreshCw } from "lucide-react";
+import { Navbar } from "@/components/Navbar";
+import { FilterSidebar } from "@/components/FilterSidebar";
+import { ViewToggle } from "@/components/ViewToggle";
+import { PaperCard } from "@/components/PaperCard";
+import { PapersTable } from "@/components/PapersTable";
+import { Filters, FilterOption, Paper, ViewMode } from "@/types/paper";
+import { ArxivEntry } from "@/types/arxiv";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { fetchArxivFeed, DEFAULT_TOPICS } from "@/lib/arxiv";
+import { useAuth } from "@/context/AuthContext";
+import { useSearch } from "@/context/SearchContext";
+import { normalizeArxivEntry } from "@/lib/papers";
+import { apiRequest, getSavedPapers } from "@/lib/api";
+import { Profile } from "@/types/profile";
 
 export default function Index() {
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState<Filters>({
-    topics: [],
-    countries: [],
-    institutions: [],
-    years: [],
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState<Filters>({ topics: [], years: [] });
+  const { accessToken } = useAuth();
+  const { setIsDialogOpen } = useSearch();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (location.state?.openSearchDialog) {
+      setIsDialogOpen(true);
+    }
+  }, [location.state, setIsDialogOpen]);
+
+  const { data: profile } = useQuery({
+    queryKey: ["profile"],
+    queryFn: () => apiRequest<Profile>("/profile", { token: accessToken }),
+    enabled: Boolean(accessToken),
   });
 
-  // Filter papers based on search and filters
-  const filteredPapers = mockPapers.filter((paper) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      paper.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      paper.abstract.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesTopics =
-      filters.topics.length === 0 ||
-      paper.topics.some((topic) =>
-        filters.topics.some((filterId) =>
-          topicFilters.find((f) => f.id === filterId)?.label === topic
-        )
-      );
-
-    const matchesCountry =
-      filters.countries.length === 0 ||
-      filters.countries.some((filterId) =>
-        countryFilters.find((f) => f.id === filterId)?.label === paper.country
-      );
-
-    const matchesInstitution =
-      filters.institutions.length === 0 ||
-      filters.institutions.some((filterId) =>
-        institutionFilters.find((f) => f.id === filterId)?.label === paper.institution
-      );
-
-    const matchesYear =
-      filters.years.length === 0 ||
-      filters.years.some((filterId) =>
-        paper.date.startsWith(filterId)
-      );
-
-    return matchesSearch && matchesTopics && matchesCountry && matchesInstitution && matchesYear;
+  const { data: savedPapers } = useQuery({
+    queryKey: ["savedPapers"],
+    queryFn: () => getSavedPapers(accessToken),
+    enabled: Boolean(accessToken),
   });
 
-  const totalPages = Math.ceil(filteredPapers.length / ITEMS_PER_PAGE);
-  const paginatedPapers = filteredPapers.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  const topicsToUse = useMemo(() => {
+    if (filters.topics.length > 0) return filters.topics;
+    if (profile?.topic_preferences) {
+      return profile.topic_preferences
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+    }
+    return DEFAULT_TOPICS;
+  }, [filters.topics, profile]);
+
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["papers", topicsToUse.join(",")],
+    queryFn: ({ pageParam }: { pageParam: number }) =>
+      fetchArxivFeed(
+        { topics: topicsToUse, start: pageParam, max_results: 24 },
+        accessToken,
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: ArxivEntry[], allPages: ArxivEntry[][]) => {
+      if (lastPage.length < 24) return undefined;
+      return allPages.length * 24;
+    },
+    enabled: Boolean(accessToken),
+    staleTime: 1000 * 60 * 60, // 1 hour
+  });
+
+  const papers: Paper[] = useMemo(() => {
+    if (!data) return [];
+    return data.pages.flat().map(normalizeArxivEntry);
+  }, [data]);
+
+  const topicFilters = useMemo(() => buildTopicFilters(papers), [papers]);
+  const yearFilters = useMemo(() => buildYearFilters(papers), [papers]);
+
+  const filteredPapers = useMemo(() => {
+    return papers.filter((paper) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        paper.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        paper.abstract.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesYear =
+        filters.years.length === 0 ||
+        filters.years.some((year) => paper.date?.startsWith(year));
+
+      return matchesSearch && matchesYear;
+    });
+  }, [papers, searchQuery, filters.years]);
 
   const handleFiltersChange = (newFilters: Filters) => {
     setFilters(newFilters);
-    setCurrentPage(1);
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background flex flex-col">
       <Navbar />
-      
-      <div className="flex">
+
+      <div className="flex flex-1 overflow-hidden">
         <FilterSidebar
           topicFilters={topicFilters}
-          countryFilters={countryFilters}
-          institutionFilters={institutionFilters}
           yearFilters={yearFilters}
           filters={filters}
           onFiltersChange={handleFiltersChange}
         />
 
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 overflow-y-auto">
           <div className="mb-6">
             <div className="flex items-center justify-between gap-4 mb-4">
               <div className="relative flex-1 max-w-md">
@@ -100,47 +133,74 @@ export default function Index() {
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
-                    setCurrentPage(1);
                   }}
                   className="pl-10"
                 />
               </div>
-              <ViewToggle mode={viewMode} onModeChange={setViewMode} />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    queryClient.invalidateQueries({
+                      queryKey: ["papers", topicsToUse.join(",")],
+                    })
+                  }
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+                <ViewToggle mode={viewMode} onModeChange={setViewMode} />
+              </div>
             </div>
 
             <p className="text-sm text-muted-foreground">
               Showing {filteredPapers.length} papers
-              {(filters.topics.length > 0 ||
-                filters.countries.length > 0 ||
-                filters.institutions.length > 0 ||
-                filters.years.length > 0) && ' (filtered)'}
+              {filters.years.length > 0 && " (filtered)"}
             </p>
           </div>
 
-          {viewMode === 'grid' ? (
+          {isLoading ? (
+            <div className="flex h-64 items-center justify-center text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : isError ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-destructive">
+              {(error as Error)?.message || "Unable to load papers"}
+            </div>
+          ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {paginatedPapers.map((paper, index) => (
-                <PaperCard key={paper.id} paper={paper} index={index} />
+              {filteredPapers.map((paper, index) => (
+                <PaperCard
+                  key={paper.id}
+                  paper={paper}
+                  index={index}
+                  savedPapers={savedPapers}
+                />
               ))}
             </div>
           ) : (
-            <PapersTable papers={paginatedPapers} />
+            <PapersTable papers={filteredPapers} savedPapers={savedPapers} />
           )}
 
-          {filteredPapers.length === 0 && (
+          {filteredPapers.length === 0 && !isLoading && (
             <div className="text-center py-12">
-              <p className="text-lg text-muted-foreground">No papers found matching your criteria</p>
-              <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters or search query</p>
+              <p className="text-lg text-muted-foreground">
+                No papers found matching your criteria
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Try adjusting your filters or search query
+              </p>
             </div>
           )}
 
-          {totalPages > 1 && (
-            <div className="mt-8">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
+          {hasNextPage && (
+            <div className="flex justify-center mt-6">
+              <Button
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+              >
+                {isFetchingNextPage ? "Loading..." : "Load More"}
+              </Button>
             </div>
           )}
         </main>
@@ -148,3 +208,56 @@ export default function Index() {
     </div>
   );
 }
+
+const colorRamp: FilterOption["color"][] = [
+  "coral",
+  "violet",
+  "teal",
+  "amber",
+  "blue",
+  "rose",
+  "emerald",
+];
+
+const buildTopicFilters = (papers: Paper[]): FilterOption[] => {
+  const counts = new Map<string, number>();
+  papers.forEach((paper) => {
+    paper.topics.forEach((topic) => {
+      counts.set(topic, (counts.get(topic) || 0) + 1);
+    });
+  });
+
+  const fallbackTopics = DEFAULT_TOPICS.map((topic) => [topic, 0] as const);
+  const entries = counts.size ? Array.from(counts.entries()) : fallbackTopics;
+
+  return entries
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12)
+    .map(([topic, count], index) => ({
+      id: topic,
+      label: topic,
+      value: topic,
+      count,
+      color: colorRamp[index % colorRamp.length],
+    }));
+};
+
+const buildYearFilters = (papers: Paper[]): FilterOption[] => {
+  const counts = new Map<string, number>();
+  papers.forEach((paper) => {
+    if (!paper.date) return;
+    const year = paper.date.slice(0, 4);
+    counts.set(year, (counts.get(year) || 0) + 1);
+  });
+
+  return Array.from(counts.entries())
+    .sort((a, b) => Number(b[0]) - Number(a[0]))
+    .slice(0, 6)
+    .map(([year, count], index) => ({
+      id: year,
+      label: year,
+      value: year,
+      count,
+      color: colorRamp[index % colorRamp.length],
+    }));
+};

@@ -19,6 +19,7 @@ from src.router.auth import router as auth_router
 from src.router.profile import router as profile_router
 from src.router.arxiv import router as arxiv_router
 from src.router.paper import router as paper_router
+from src.router.ingestion import router as ingestion_router
 
 from src.model import *
 
@@ -57,8 +58,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="The Arxiver - Backend",
-    description="FastAPI backend application for The Arxiver. Supports user authentication, question answering from various Arxiv papers.",
+    title="The Arxplorer - Backend",
+    description="FastAPI backend application for The Arxplorer. Supports user authentication, question answering from various Arxiv papers.",
     version="0.0.1",
     lifespan=lifespan,
 )
@@ -93,6 +94,7 @@ app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(profile_router, prefix="/api/v1/profile", tags=["Profile"])
 app.include_router(arxiv_router, prefix="/api/v1/arxiv", tags=["Arxiv"])
 app.include_router(paper_router, prefix="/api/v1/papers", tags=["Papers"])
+app.include_router(ingestion_router, prefix="/api/v1/ingestion", tags=["Ingestion"])
 
 
 @app.get("/health")
@@ -108,9 +110,11 @@ def health_check():
         "num_threads": num_threads,
     }
 
+
 @app.get("/")
 def root():
-    return {"message": "Welcome to The Arxiver Backend API"}
+    return {"message": "Welcome to The Arxplorer Backend API"}
+
 
 @app.exception_handler(DatabaseConnectionError)
 async def db_connection_exception_handler(request, exc: DatabaseConnectionError):

@@ -1,5 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel
+from datetime import datetime
 
 
 class PaperCreate(BaseModel):
@@ -14,6 +15,7 @@ class PaperCreate(BaseModel):
     published_date: Optional[str] = None
     institution: Optional[str] = None
     date_published: Optional[str] = None
+    thumbnail_url: Optional[str] = None
 
 
 class PaperResponse(BaseModel):
@@ -31,3 +33,9 @@ class PaperResponse(BaseModel):
     thumbnail_url: Optional[str] = None
     institution: Optional[str] = None
     date_published: Optional[str] = None
+    created_at: datetime
+    ingested: bool
+
+
+class BulkDeletePapers(BaseModel):
+    paper_ids: list[int]

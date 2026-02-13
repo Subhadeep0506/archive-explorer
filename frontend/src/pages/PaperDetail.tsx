@@ -1,9 +1,11 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { mockPapers } from '@/data/mockPapers';
-import { Navbar } from '@/components/Navbar';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { Navbar } from "@/components/Navbar";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PaperPdfViewer } from "@/components/PdfViewer";
 import {
   ArrowLeft,
   Calendar,
@@ -17,37 +19,99 @@ import {
   Copy,
   ExternalLink,
   MessageCircle,
-} from 'lucide-react';
-import { toast } from 'sonner';
+  BookmarkPlus,
+  Loader2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
+import { useSearch } from "@/context/SearchContext";
+import { fetchPaperById } from "@/lib/arxiv";
+import { normalizeArxivEntry } from "@/lib/papers";
+import { savePaper, getSavedPapers, ingestPaper } from "@/lib/api";
+import type { Paper } from "@/types/paper";
 
 export default function PaperDetail() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
-  const paper = mockPapers.find((p) => p.id === id);
+  const { accessToken } = useAuth();
+  const { setIsDialogOpen } = useSearch();
+  const queryClient = useQueryClient();
+  const statePaper = location.state?.paper as Paper | undefined;
+  const fromSearch = location.state?.fromSearch as boolean | undefined;
 
-  if (!paper) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto py-12 text-center">
-          <h1 className="text-2xl font-bold mb-4">Paper not found</h1>
-          <Link to="/">
-            <Button>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    setIsDialogOpen(false);
+  }, [setIsDialogOpen]);
 
-  const formattedDate = new Date(paper.date).toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
+  const { data, isLoading } = useQuery({
+    queryKey: ["paper", id],
+    queryFn: () => fetchPaperById(id!, accessToken),
+    enabled: Boolean(id && accessToken && !statePaper),
   });
+
+  const paper = statePaper || (data ? normalizeArxivEntry(data) : undefined);
+
+  const { data: savedPapers } = useQuery({
+    queryKey: ["savedPapers"],
+    queryFn: () => getSavedPapers(accessToken),
+    enabled: Boolean(accessToken),
+  });
+
+  const isSaved = savedPapers?.some((sp) => sp.arxiv_id === paper?.id);
+
+  const savePaperMutation = useMutation({
+    mutationFn: () => savePaper(paper!, accessToken),
+    onSuccess: () => {
+      toast.success("Paper saved successfully!");
+      // Start ingestion in background
+      ingestPaper({
+        paperUrl: paper!.pdfUrl,
+        arxivId: paper!.id,
+        token: accessToken,
+      })
+        .then(() => {
+          toast.success(
+            "Document ingested successfully! You can now chat with this paper.",
+          );
+        })
+        .catch((error) => {
+          toast.error(`Failed to ingest document: ${error.message}`);
+        });
+      queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
+    },
+    onError: (error) => {
+      toast.error(`Failed to save paper: ${error.message}`);
+    },
+  });
+
+  const handleSavePaper = () => {
+    savePaperMutation.mutate();
+  };
+
+  const handleChat = () => {
+    navigate(`/paper/${paper.id}/chat`, { state: { paper } });
+  };
+
+  const handleCopyBibtex = () => {
+    const bibtex = `@article{${paper.authors[0]?.split(" ")[1]?.toLowerCase() || "author"}${paper.date.slice(0, 4)},
+  title={${paper.title}},
+  author={${paper.authors.join(" and ")}},
+  year={${paper.date.slice(0, 4)}},
+  institution={${paper.institution || paper.primaryCategory || "arXiv"}}
+}`;
+    navigator.clipboard.writeText(bibtex);
+    toast.success("BibTeX copied to clipboard!");
+  };
+
+  const formattedDate = paper?.date
+    ? new Date(paper.date).toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "Date pending";
 
   const aiSummary = `## Key Findings
 
@@ -77,29 +141,24 @@ The authors acknowledge certain limitations including dataset-specific optimizat
 ### Future Directions
 The paper suggests several promising research directions for future work, including scaling to larger models and exploring cross-domain applications.`;
 
-  const handleCopyBibtex = () => {
-    const bibtex = `@article{${paper.authors[0]?.split(' ')[1]?.toLowerCase() || 'author'}${paper.date.slice(0, 4)},
-  title={${paper.title}},
-  author={${paper.authors.join(' and ')}},
-  year={${paper.date.slice(0, 4)}},
-  institution={${paper.institution}}
-}`;
-    navigator.clipboard.writeText(bibtex);
-    toast.success('BibTeX copied to clipboard!');
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <div className="container mx-auto py-6 px-4">
-        <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
+        <button
+          onClick={() =>
+            navigate("/app", {
+              state: fromSearch ? { openSearchDialog: true } : undefined,
+            })
+          }
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+        >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Link>
+          {fromSearch ? "Back to Search" : "Back to Dashboard"}
+        </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Paper Preview - Left Side */}
           <div className="lg:col-span-3 space-y-6">
             <div className="animate-fade-in">
               <h1 className="text-2xl lg:text-3xl font-bold leading-tight mb-4">
@@ -117,15 +176,15 @@ The paper suggests several promising research directions for future work, includ
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-6">
                 <span className="flex items-center gap-1.5">
                   <Users className="w-4 h-4" />
-                  {paper.authors.join(', ')}
+                  {paper.authors.join(", ")}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Building2 className="w-4 h-4" />
-                  {paper.institution}
+                  {paper.institution || paper.primaryCategory || "arXiv"}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <MapPin className="w-4 h-4" />
-                  {paper.country}
+                  {paper.country || "Global Research"}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4" />
@@ -134,14 +193,30 @@ The paper suggests several promising research directions for future work, includ
               </div>
 
               <div className="flex flex-wrap gap-3 mb-6">
-                <Button 
-                  onClick={() => navigate(`/paper/${id}/chat`)}
+                <Button
+                  onClick={handleSavePaper}
+                  disabled={isSaved || savePaperMutation.isPending}
+                  className="bg-chip-amber hover:bg-chip-amber/90"
+                >
+                  {savePaperMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <BookmarkPlus className="w-4 h-4 mr-2" />
+                  )}
+                  {isSaved ? "Saved" : "Save Paper"}
+                </Button>
+                <Button
+                  onClick={handleChat}
                   className="bg-chip-violet hover:bg-chip-violet/90"
                 >
                   <MessageCircle className="w-4 h-4 mr-2" />
                   Chat with Paper
                 </Button>
-                <a href={paper.pdfUrl} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={paper.pdfUrl || paper.htmlUrl || "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <Button className="bg-chip-coral hover:bg-chip-coral/90">
                     <FileText className="w-4 h-4 mr-2" />
                     View PDF
@@ -149,16 +224,30 @@ The paper suggests several promising research directions for future work, includ
                   </Button>
                 </a>
                 {paper.htmlUrl && (
-                  <a href={paper.htmlUrl} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" className="border-chip-blue text-chip-blue hover:bg-chip-blue hover:text-white">
+                  <a
+                    href={paper.htmlUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button
+                      variant="outline"
+                      className="border-chip-blue text-chip-blue hover:bg-chip-blue hover:text-white"
+                    >
                       <Globe className="w-4 h-4 mr-2" />
                       HTML Version
                     </Button>
                   </a>
                 )}
                 {paper.githubUrl && (
-                  <a href={paper.githubUrl} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" className="border-chip-emerald text-chip-emerald hover:bg-chip-emerald hover:text-white">
+                  <a
+                    href={paper.githubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button
+                      variant="outline"
+                      className="border-chip-emerald text-chip-emerald hover:bg-chip-emerald hover:text-white"
+                    >
                       <Github className="w-4 h-4 mr-2" />
                       Source Code
                     </Button>
@@ -171,43 +260,41 @@ The paper suggests several promising research directions for future work, includ
               </div>
             </div>
 
-            {/* Paper Preview Embed */}
-            <Card className="animate-fade-in" style={{ animationDelay: '0.1s', opacity: 0 }}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Paper Preview</CardTitle>
+            <Card
+              className="animate-fade-in"
+              style={{ animationDelay: "0.1s", opacity: 0 }}
+            >
+              <CardHeader className="pb-1 space-y-1">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-chip-violet" />
+                  Interactive Paper Preview
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="aspect-[3/4] bg-muted rounded-lg flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <div className="w-24 h-32 mx-auto mb-4 bg-background rounded-lg shadow-lg flex items-center justify-center border">
-                      <FileText className="w-12 h-12 text-muted-foreground" />
-                    </div>
-                    <p className="text-muted-foreground mb-4">PDF Preview</p>
-                    <a href={paper.pdfUrl} target="_blank" rel="noopener noreferrer">
-                      <Button size="sm">
-                        Open Full PDF
-                        <ExternalLink className="w-3 h-3 ml-2" />
-                      </Button>
-                    </a>
-                  </div>
-                </div>
+                <PaperPdfViewer paper={paper} />
               </CardContent>
             </Card>
 
-            {/* Abstract */}
-            <Card className="animate-fade-in" style={{ animationDelay: '0.15s', opacity: 0 }}>
+            <Card
+              className="animate-fade-in"
+              style={{ animationDelay: "0.15s", opacity: 0 }}
+            >
               <CardHeader>
                 <CardTitle className="text-lg">Abstract</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground leading-relaxed">{paper.abstract}</p>
+                <p className="text-muted-foreground leading-relaxed">
+                  {paper.abstract}
+                </p>
               </CardContent>
             </Card>
           </div>
 
-          {/* AI Summary - Right Side */}
           <div className="lg:col-span-2">
-            <Card className="sticky top-24 animate-slide-in-right" style={{ opacity: 0 }}>
+            <Card
+              className="sticky top-24 animate-slide-in-right"
+              style={{ opacity: 0 }}
+            >
               <CardHeader className="border-b bg-gradient-to-r from-chip-violet-bg to-chip-blue-bg">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Sparkles className="w-5 h-5 text-chip-violet" />
@@ -216,40 +303,89 @@ The paper suggests several promising research directions for future work, includ
               </CardHeader>
               <CardContent className="pt-4 max-h-[calc(100vh-12rem)] overflow-y-auto scrollbar-thin">
                 <div className="prose prose-sm dark:prose-invert max-w-none">
-                  {aiSummary.split('\n').map((line, index) => {
-                    if (line.startsWith('## ')) {
-                      return <h2 key={index} className="text-lg font-bold mt-4 mb-2 text-foreground">{line.replace('## ', '')}</h2>;
-                    }
-                    if (line.startsWith('### ')) {
-                      return <h3 key={index} className="text-base font-semibold mt-3 mb-1 text-foreground">{line.replace('### ', '')}</h3>;
-                    }
-                    if (line.startsWith('| ')) {
+                  {aiSummary.split("\n").map((line, index) => {
+                    if (line.startsWith("## ")) {
                       return (
-                        <div key={index} className="text-sm text-muted-foreground font-mono bg-muted/50 px-2 py-0.5 rounded">
+                        <h2
+                          key={index}
+                          className="text-lg font-bold mt-4 mb-2 text-foreground"
+                        >
+                          {line.replace("## ", "")}
+                        </h2>
+                      );
+                    }
+                    if (line.startsWith("### ")) {
+                      return (
+                        <h3
+                          key={index}
+                          className="text-base font-semibold mt-3 mb-1 text-foreground"
+                        >
+                          {line.replace("### ", "")}
+                        </h3>
+                      );
+                    }
+                    if (line.startsWith("| ")) {
+                      return (
+                        <div
+                          key={index}
+                          className="text-sm text-muted-foreground font-mono bg-muted/50 px-2 py-0.5 rounded"
+                        >
                           {line}
                         </div>
                       );
                     }
-                    if (line.startsWith('1. ') || line.startsWith('2. ') || line.startsWith('3. ')) {
-                      const [num, ...rest] = line.split('. ');
-                      const content = rest.join('. ');
+                    if (
+                      line.startsWith("1. ") ||
+                      line.startsWith("2. ") ||
+                      line.startsWith("3. ")
+                    ) {
+                      const [num, ...rest] = line.split(". ");
+                      const content = rest.join(". ");
                       const boldMatch = content.match(/\*\*(.*?)\*\*(.*)/);
                       if (boldMatch) {
                         return (
-                          <p key={index} className="text-sm text-muted-foreground my-1 ml-4">
-                            {num}. <strong className="text-foreground">{boldMatch[1]}</strong>{boldMatch[2]}
+                          <p
+                            key={index}
+                            className="text-sm text-muted-foreground my-1 ml-4"
+                          >
+                            {num}.{" "}
+                            <strong className="text-foreground">
+                              {boldMatch[1]}
+                            </strong>
+                            {boldMatch[2]}
                           </p>
                         );
                       }
-                      return <p key={index} className="text-sm text-muted-foreground my-1 ml-4">{line}</p>;
+                      return (
+                        <p
+                          key={index}
+                          className="text-sm text-muted-foreground my-1 ml-4"
+                        >
+                          {line}
+                        </p>
+                      );
                     }
-                    if (line.startsWith('- ')) {
-                      return <p key={index} className="text-sm text-muted-foreground my-1 ml-6">{line}</p>;
+                    if (line.startsWith("- ")) {
+                      return (
+                        <p
+                          key={index}
+                          className="text-sm text-muted-foreground my-1 ml-6"
+                        >
+                          {line}
+                        </p>
+                      );
                     }
-                    if (line.trim() === '') {
+                    if (line.trim() === "") {
                       return <div key={index} className="h-2" />;
                     }
-                    return <p key={index} className="text-sm text-muted-foreground my-2">{line}</p>;
+                    return (
+                      <p
+                        key={index}
+                        className="text-sm text-muted-foreground my-2"
+                      >
+                        {line}
+                      </p>
+                    );
                   })}
                 </div>
               </CardContent>

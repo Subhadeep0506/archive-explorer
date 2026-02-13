@@ -6,7 +6,14 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import PaperDetail from "./pages/PaperDetail";
 import ChatScreen from "./pages/ChatScreen";
+import Profile from "./pages/Profile";
+import SavedPapers from "./pages/SavedPapers";
 import NotFound from "./pages/NotFound";
+import Landing from "./pages/Landing";
+import GoogleCallback from "./pages/GoogleCallback";
+import { AuthProvider } from "@/context/AuthContext";
+import { SearchProvider } from "@/context/SearchContext";
+import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -15,15 +22,27 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/paper/:id" element={<PaperDetail />} />
-          <Route path="/paper/:paperId/chat" element={<ChatScreen />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <SearchProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route
+                path="/auth/google/callback"
+                element={<GoogleCallback />}
+              />
+              <Route element={<ProtectedRoute />}>
+                <Route path="/app" element={<Index />} />
+                <Route path="/saved-papers" element={<SavedPapers />} />
+                <Route path="/paper/:id" element={<PaperDetail />} />
+                <Route path="/paper/:paperId/chat" element={<ChatScreen />} />
+                <Route path="/profile" element={<Profile />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </SearchProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

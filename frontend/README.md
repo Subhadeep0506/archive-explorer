@@ -71,3 +71,16 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Connecting to the FastAPI backend
+
+The React app now talks to the FastAPI service for authentication and paper feeds. Configure the API base URL through Vite env vars:
+
+```sh
+# frontend/.env
+VITE_API_URL=http://localhost:8000/api/v1
+```
+
+1. Start the backend from `backend/` with `uvicorn main:app --reload --port 8000`.
+2. Run the frontend from `frontend/` with `npm run dev` (or `bun dev`).
+3. Register or log in via the landing page to access the authenticated dashboard.

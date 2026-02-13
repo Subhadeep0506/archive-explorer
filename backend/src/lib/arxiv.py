@@ -1,5 +1,6 @@
 import time
 from typing import Any, Dict, List, Optional
+import html
 
 import requests
 import xml.etree.ElementTree as ET
@@ -192,7 +193,9 @@ class ArxivClient:
 
     @staticmethod
     def _text(elem: Optional[ET.Element]) -> Optional[str]:
-        return elem.text.strip() if elem is not None and elem.text else None
+        if elem is not None and elem.text:
+            return html.unescape(elem.text.strip())
+        return None
 
 
 async def generate_first_page_thumbnail(

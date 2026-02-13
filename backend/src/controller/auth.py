@@ -173,7 +173,6 @@ async def login_user(login_data: LoginRequest, request: Request):
 oauth = AsyncOAuth2Client(
     client_id=os.getenv("GOOGLE_CLIENT_ID"),
     client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-    redirect_uri=os.getenv("GOOGLE_REDIRECT_URI"),
     authorize_url="https://accounts.google.com/o/oauth2/auth",
     access_token_url="https://oauth2.googleapis.com/token",
     userinfo_url="https://www.googleapis.com/oauth2/v2/userinfo",
@@ -186,6 +185,7 @@ async def initiate_google_login():
         authorization_url, state = oauth.create_authorization_url(
             "https://accounts.google.com/o/oauth2/auth",
             scope=["openid", "email", "profile"],
+            redirect_uri=os.getenv("GOOGLE_REDIRECT_URI"),
         )
         logger.info("Google OAuth authorization URL generated")
         return {"authorization_url": authorization_url, "state": state}
@@ -200,6 +200,7 @@ async def handle_google_callback(code: str, state: str, request: Request):
         token = await oauth.fetch_token(
             "https://oauth2.googleapis.com/token",
             code=code,
+            redirect_uri=os.getenv("GOOGLE_REDIRECT_URI"),
         )
 
         user_info = await oauth.get("https://www.googleapis.com/oauth2/v2/userinfo")

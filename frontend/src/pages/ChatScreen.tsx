@@ -1,46 +1,68 @@
-import { useState, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { mockPapers } from '@/data/mockPapers';
-import { mockConversations } from '@/data/mockChats';
-import { ChatConversation, ChatMessage } from '@/types/chat';
-import { ChatSidebar } from '@/components/chat/ChatSidebar';
-import { ChatHeader } from '@/components/chat/ChatHeader';
-import { ChatArea } from '@/components/chat/ChatArea';
-import { ChatInput } from '@/components/chat/ChatInput';
-import { toast } from 'sonner';
+import { useState, useMemo } from "react";
+import {
+  useParams,
+  useNavigate,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { mockConversations } from "@/data/mockChats";
+import { ChatConversation, ChatMessage } from "@/types/chat";
+import { ChatSidebar } from "@/components/chat/ChatSidebar";
+import { ChatHeader } from "@/components/chat/ChatHeader";
+import { ChatArea } from "@/components/chat/ChatArea";
+import { ChatInput } from "@/components/chat/ChatInput";
+import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
+import { fetchPaperById } from "@/lib/arxiv";
+import { normalizeArxivEntry } from "@/lib/papers";
+import type { Paper } from "@/types/paper";
+import { Loader2 } from "lucide-react";
 
 export default function ChatScreen() {
   const { paperId } = useParams<{ paperId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { accessToken } = useAuth();
 
-  const paper = mockPapers.find((p) => p.id === paperId);
+  const statePaper = location.state?.paper as Paper | undefined;
+  const { data, isLoading } = useQuery({
+    queryKey: ["paper-chat", paperId],
+    queryFn: () => fetchPaperById(paperId!, accessToken),
+    enabled: Boolean(paperId && accessToken && !statePaper),
+  });
+
+  const paper = statePaper || (data ? normalizeArxivEntry(data) : undefined);
 
   // Filter conversations for this paper
   const paperConversations = useMemo(
     () => mockConversations.filter((c) => c.paperId === paperId),
-    [paperId]
+    [paperId],
   );
 
-  const initialConvId = searchParams.get('conv');
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(
-    initialConvId || null
-  );
+  const initialConvId = searchParams.get("conv");
+  const [activeConversationId, setActiveConversationId] = useState<
+    string | null
+  >(initialConvId || null);
 
   // Local state for conversations (simulating persistence)
-  const [conversations, setConversations] = useState<ChatConversation[]>(paperConversations);
+  const [conversations, setConversations] =
+    useState<ChatConversation[]>(paperConversations);
 
-  const activeConversation = conversations.find((c) => c.id === activeConversationId);
+  const activeConversation = conversations.find(
+    (c) => c.id === activeConversationId,
+  );
 
   const handleNewChat = () => {
     const newConv: ChatConversation = {
       id: `conv-${Date.now()}`,
-      paperId: paperId || '',
-      paperTitle: paper?.title || 'Unknown Paper',
-      title: 'New conversation',
+      paperId: paperId || "",
+      paperTitle: paper?.title || "Unknown Paper",
+      title: "New conversation",
       messages: [],
       lastUpdated: new Date().toISOString(),
-      pdfUrl: paper?.pdfUrl || '',
+      pdfUrl: paper?.pdfUrl || "",
     };
     setConversations((prev) => [newConv, ...prev]);
     setActiveConversationId(newConv.id);
@@ -51,12 +73,12 @@ export default function ChatScreen() {
       // Auto-create a new conversation
       const newConv: ChatConversation = {
         id: `conv-${Date.now()}`,
-        paperId: paperId || '',
-        paperTitle: paper?.title || 'Unknown Paper',
-        title: content.slice(0, 40) + (content.length > 40 ? '...' : ''),
+        paperId: paperId || "",
+        paperTitle: paper?.title || "Unknown Paper",
+        title: content.slice(0, 40) + (content.length > 40 ? "..." : ""),
         messages: [],
         lastUpdated: new Date().toISOString(),
-        pdfUrl: paper?.pdfUrl || '',
+        pdfUrl: paper?.pdfUrl || "",
       };
       setConversations((prev) => [newConv, ...prev]);
       setActiveConversationId(newConv.id);
@@ -74,7 +96,7 @@ export default function ChatScreen() {
   const addMessageToConversation = (convId: string, content: string) => {
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
-      role: 'user',
+      role: "user",
       content,
       timestamp: new Date().toISOString(),
     };
@@ -88,18 +110,18 @@ export default function ChatScreen() {
               lastUpdated: new Date().toISOString(),
               title:
                 conv.messages.length === 0
-                  ? content.slice(0, 40) + (content.length > 40 ? '...' : '')
+                  ? content.slice(0, 40) + (content.length > 40 ? "..." : "")
                   : conv.title,
             }
-          : conv
-      )
+          : conv,
+      ),
     );
 
     // Simulate AI response
     setTimeout(() => {
       const aiMessage: ChatMessage = {
         id: `msg-${Date.now() + 1}`,
-        role: 'assistant',
+        role: "assistant",
         content: generateMockResponse(content),
         timestamp: new Date().toISOString(),
       };
@@ -112,22 +134,22 @@ export default function ChatScreen() {
                 messages: [...conv.messages, aiMessage],
                 lastUpdated: new Date().toISOString(),
               }
-            : conv
-        )
+            : conv,
+        ),
       );
     }, 1000);
   };
 
   const handleSummarize = () => {
     if (!activeConversation || activeConversation.messages.length === 0) {
-      toast.info('No messages to summarize');
+      toast.info("No messages to summarize");
       return;
     }
-    toast.success('Generating conversation summary...');
-    
+    toast.success("Generating conversation summary...");
+
     const summaryMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
-      role: 'assistant',
+      role: "assistant",
       content: `**Conversation Summary**\n\nThis conversation covered ${activeConversation.messages.length} messages discussing "${activeConversation.paperTitle}". The main topics included:\n\n- Key findings and methodology\n- Practical applications\n- Technical implementation details\n\nThe discussion provided valuable insights into the paper's contributions to the field.`,
       timestamp: new Date().toISOString(),
     };
@@ -140,22 +162,26 @@ export default function ChatScreen() {
               messages: [...conv.messages, summaryMessage],
               lastUpdated: new Date().toISOString(),
             }
-          : conv
-      )
+          : conv,
+      ),
     );
   };
 
-  const handleOpenPdf = (url: string) => {
-    window.open(url, '_blank');
+  const handleBack = () => {
+    navigate(`/paper/${paperId}`, { state: { paper } });
   };
 
-  const handleBack = () => {
-    navigate(`/paper/${paperId}`);
-  };
+  if (!paper && isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!paper) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Paper not found</p>
       </div>
     );
@@ -173,7 +199,7 @@ export default function ChatScreen() {
       <div className="flex-1 flex flex-col min-w-0">
         <ChatHeader
           title={activeConversation?.title || paper.title}
-          pdfUrl={paper.pdfUrl}
+          pdfUrl={paper.pdfUrl || paper.htmlUrl || ""}
           onBack={handleBack}
           onSummarize={handleSummarize}
         />
@@ -192,15 +218,15 @@ export default function ChatScreen() {
 function generateMockResponse(userMessage: string): string {
   const lowerMessage = userMessage.toLowerCase();
 
-  if (lowerMessage.includes('summary') || lowerMessage.includes('summarize')) {
+  if (lowerMessage.includes("summary") || lowerMessage.includes("summarize")) {
     return "Based on the paper's content, here's a summary:\n\n**Main Contribution**: The paper introduces a novel approach that significantly advances the field.\n\n**Key Findings**:\n- Improved performance metrics over baseline methods\n- More efficient resource utilization\n- Broader applicability across domains\n\n**Methodology**: The authors employ rigorous experimental validation with multiple benchmarks.";
   }
 
-  if (lowerMessage.includes('method') || lowerMessage.includes('approach')) {
+  if (lowerMessage.includes("method") || lowerMessage.includes("approach")) {
     return "The methodology presented in this paper includes:\n\n1. **Data Collection**: Comprehensive dataset curation from multiple sources\n2. **Model Architecture**: Novel design choices that enable better representation learning\n3. **Training Strategy**: Efficient optimization techniques with careful hyperparameter tuning\n4. **Evaluation Protocol**: Rigorous testing on held-out datasets with statistical significance testing";
   }
 
-  if (lowerMessage.includes('result') || lowerMessage.includes('finding')) {
+  if (lowerMessage.includes("result") || lowerMessage.includes("finding")) {
     return "The paper reports several significant results:\n\n- **Accuracy**: 94.2% (+5.1% over baseline)\n- **Speed**: 3.8x faster inference time\n- **Memory**: 4x reduction in memory footprint\n\nThese improvements were consistent across all tested benchmarks and demonstrate the practical value of the proposed approach.";
   }
 

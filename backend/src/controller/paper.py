@@ -7,6 +7,7 @@ from ..errors import DatabaseConnectionError
 from ..model.paper import Paper
 from ..schema.paper import PaperCreate, PaperResponse
 from ..core.logger import SingletonLogger
+from ..core.ingest_engine.ingestion import IngestionEngine
 from ..lib.arxiv import generate_first_page_thumbnail
 
 
@@ -72,6 +73,8 @@ async def create_paper(user_id: int, payload: PaperCreate) -> PaperResponse:
                 thumbnail_url=paper.thumbnail_url,
                 institution=paper.institution,
                 date_published=paper.date_published,
+                created_at=paper.created_at,
+                ingested=paper.ingested,
             )
     except HTTPException:
         raise
@@ -90,3 +93,177 @@ async def create_paper(user_id: int, payload: PaperCreate) -> PaperResponse:
             f"Unexpected error creating paper arxiv_id={payload.arxiv_id}: {str(e)}"
         )
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+async def get_paper(paper_id: int, user_id: int) -> PaperResponse:
+    """Retrieve a paper by ID, ensuring it belongs to the user."""
+    try:
+        async with session_pool() as session:
+            result = await session.execute(
+                select(Paper).where(Paper.id == paper_id, Paper.user_id == user_id)
+            )
+            paper = result.scalar_one_or_none()
+            if not paper:
+                raise HTTPException(status_code=404, detail="Paper not found")
+
+            return PaperResponse(
+                id=paper.id,
+                user_id=paper.user_id,
+                title=paper.title,
+                abstract=paper.abstract,
+                authors=paper.authors,
+                arxiv_id=paper.arxiv_id,
+                pdf_url=paper.pdf_url,
+                paper_url=paper.paper_url,
+                github_url=paper.github_url,
+                topics=paper.topics,
+                published_date=paper.published_date,
+                thumbnail_url=paper.thumbnail_url,
+                institution=paper.institution,
+                date_published=paper.date_published,
+                created_at=paper.created_at,
+                ingested=paper.ingested,
+            )
+    except HTTPException:
+        raise
+    except DBAPIError as e:
+        logger.exception(
+            f"Database connection error retrieving paper id={paper_id}: {str(e)}"
+        )
+        raise DatabaseConnectionError(str(e))
+    except SQLAlchemyError as e:
+        logger.error(f"Database error retrieving paper id={paper_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve paper")
+    except Exception as e:
+        logger.error(f"Unexpected error retrieving paper id={paper_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+async def get_all_papers(user_id: int) -> list[PaperResponse]:
+    """Retrieve all papers for a user."""
+    try:
+        async with session_pool() as session:
+            result = await session.execute(
+                select(Paper).where(Paper.user_id == user_id)
+            )
+            papers = result.scalars().all()
+            return [
+                PaperResponse(
+                    id=paper.id,
+                    user_id=paper.user_id,
+                    title=paper.title,
+                    abstract=paper.abstract,
+                    authors=paper.authors,
+                    arxiv_id=paper.arxiv_id,
+                    pdf_url=paper.pdf_url,
+                    paper_url=paper.paper_url,
+                    github_url=paper.github_url,
+                    topics=paper.topics,
+                    published_date=paper.published_date,
+                    thumbnail_url=paper.thumbnail_url,
+                    institution=paper.institution,
+                    date_published=paper.date_published,
+                    created_at=paper.created_at,
+                    ingested=paper.ingested,
+                )
+                for paper in papers
+            ]
+    except DBAPIError as e:
+        logger.exception(
+            f"Database connection error retrieving papers for user_id={user_id}: {str(e)}"
+        )
+        raise DatabaseConnectionError(str(e))
+    except SQLAlchemyError as e:
+        logger.error(
+            f"Database error retrieving papers for user_id={user_id}: {str(e)}"
+        )
+        raise HTTPException(status_code=500, detail="Failed to retrieve papers")
+    except Exception as e:
+        logger.error(
+            f"Unexpected error retrieving papers for user_id={user_id}: {str(e)}"
+        )
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+async def delete_paper(paper_id: int, user_id: int) -> None:
+    """Delete a paper by ID, ensuring it belongs to the user."""
+    try:
+        async with session_pool() as session:
+            result = await session.execute(
+                select(Paper).where(Paper.id == paper_id, Paper.user_id == user_id)
+            )
+            paper = result.scalar_one_or_none()
+            if not paper:
+                raise HTTPException(status_code=404, detail="Paper not found")
+
+            arxiv_ids = [paper.arxiv_id] if paper.arxiv_id else []
+            await _cleanup_ingested_content(arxiv_ids)
+            await session.delete(paper)
+            await session.commit()
+    except HTTPException:
+        raise
+    except DBAPIError as e:
+        logger.exception(
+            f"Database connection error deleting paper id={paper_id}: {str(e)}"
+        )
+        raise DatabaseConnectionError(str(e))
+    except SQLAlchemyError as e:
+        logger.error(f"Database error deleting paper id={paper_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete paper")
+    except Exception as e:
+        logger.error(f"Unexpected error deleting paper id={paper_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+async def bulk_delete_papers(paper_ids: list[int], user_id: int) -> dict:
+    """Delete multiple papers by IDs, ensuring they belong to the user."""
+    try:
+        async with session_pool() as session:
+            # Check which papers exist and belong to user
+            result = await session.execute(
+                select(Paper).where(Paper.id.in_(paper_ids), Paper.user_id == user_id)
+            )
+            papers = result.scalars().all()
+            found_ids = {p.id for p in papers}
+            not_found = set(paper_ids) - found_ids
+            if not_found:
+                raise HTTPException(
+                    status_code=404, detail=f"Papers not found: {list(not_found)}"
+                )
+
+            await _cleanup_ingested_content(
+                [paper.arxiv_id for paper in papers if paper.arxiv_id]
+            )
+            # Delete them
+            for paper in papers:
+                await session.delete(paper)
+            await session.commit()
+        return {"message": f"Deleted {len(papers)} papers"}
+    except HTTPException:
+        raise
+    except DBAPIError as e:
+        logger.exception(
+            f"Database connection error deleting papers ids={paper_ids}: {str(e)}"
+        )
+        raise DatabaseConnectionError(str(e))
+    except SQLAlchemyError as e:
+        logger.error(f"Database error deleting papers ids={paper_ids}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete papers")
+    except Exception as e:
+        logger.error(f"Unexpected error deleting papers ids={paper_ids}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+async def _cleanup_ingested_content(arxiv_ids: list[str]) -> None:
+    """Remove any ingested artifacts for the provided arXiv identifiers."""
+    if not arxiv_ids:
+        return
+
+    try:
+        await IngestionEngine.delete_paper_using_paper_ids(arxiv_ids)
+    except Exception as e:
+        logger.warning(
+            "Failed to delete ingested content for arxiv_ids=%s: %s",
+            ", ".join(arxiv_ids),
+            e,
+        )
