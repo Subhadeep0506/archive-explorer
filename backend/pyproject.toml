@@ -26,4 +26,9 @@ dependencies = [
     "sqlalchemy>=2.0.46",
     "uvicorn>=0.40.0",
     "pymupdf>=1.24.9",
+    "langchain-pinecone>=0.2.13",
+    "langchain-text-splitters>=1.1.0",
+    "langchain-pymupdf4llm>=0.5.0",
+    "langchain-cohere>=0.5.0",
+    "langchain-google-genai>=4.2.0",
 ]
