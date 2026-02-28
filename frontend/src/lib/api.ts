@@ -207,3 +207,25 @@ export async function deleteIngestedPaper(
         token,
     });
 }
+
+// Summary and Usability API functions
+export async function getSummaryAndUsability(
+    arxivId: string,
+    token?: string | null
+): Promise<import("@/types/summary").SummaryResponse> {
+    return apiRequest(`/summary/${arxivId}`, { token });
+}
+
+export async function generateSummary(
+    arxivId: string,
+    token?: string | null
+): Promise<import("@/types/summary").GenerateSummaryResponse> {
+    return apiRequest(`/summary/${arxivId}`, { method: "POST", token });
+}
+
+export async function generateUsability(
+    arxivId: string,
+    token?: string | null
+): Promise<import("@/types/summary").GenerateUsabilityResponse> {
+    return apiRequest(`/summary/${arxivId}/usability`, { method: "POST", token });
+}

@@ -1,10 +1,25 @@
-import requests
+from dotenv import load_dotenv
 
-URL = "https://arxiv.org/pdf/2504.19565v3"
-# URL = "https://arxiv.org/pdf/2403.09676v1"
+load_dotenv()
+from src.core.vectorstore import VectorStoreFactory
+from src.core.embedding import EmbeddingFactory
+from src.lib.langsearch import LangSearchClient
 
-data = requests.get(URL)
-filename = URL.split("/")[-1] + ".pdf"
-with open(filename, "wb") as f:
-    f.write(data.content)
-print(f"Downloaded {filename} from {URL}")
+
+async def main():
+    embedding = EmbeddingFactory.build_embedding_model()
+    vectorstore = VectorStoreFactory.build_vector_store(embedding_model=embedding)
+
+    docs = vectorstore.similarity_search(
+        "What is the main contribution of the paper?", k=10
+    )
+    langsearch = await LangSearchClient.rerank_docs(
+        query="What is the main contribution of the paper?", documents=docs, top_n=4
+    )
+    print(langsearch)
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(main())

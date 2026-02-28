@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .login_session import LoginSession
     from .chat_session import Session
     from .paper import Paper
+    from .usability import Usability
 
 
 class User(Base, TimestampMixin):
@@ -54,6 +55,9 @@ class User(Base, TimestampMixin):
     )
     papers: Mapped[list["Paper"]] = relationship(
         "Paper", back_populates="user", cascade="all, delete-orphan"
+    )
+    usabilities: Mapped[list["Usability"]] = relationship(
+        "Usability", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

@@ -20,6 +20,8 @@ from src.router.profile import router as profile_router
 from src.router.arxiv import router as arxiv_router
 from src.router.paper import router as paper_router
 from src.router.ingestion import router as ingestion_router
+from src.router.summary import router as summary_router
+from src.router.chat import router as chat_router
 
 from src.model import *
 
@@ -95,6 +97,8 @@ app.include_router(profile_router, prefix="/api/v1/profile", tags=["Profile"])
 app.include_router(arxiv_router, prefix="/api/v1/arxiv", tags=["Arxiv"])
 app.include_router(paper_router, prefix="/api/v1/papers", tags=["Papers"])
 app.include_router(ingestion_router, prefix="/api/v1/ingestion", tags=["Ingestion"])
+app.include_router(summary_router, prefix="/api/v1/summary", tags=["Summary"])
+app.include_router(chat_router, prefix="/api/v1/chat", tags=["Chat"])
 
 
 @app.get("/health")

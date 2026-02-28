@@ -28,10 +28,15 @@ class Paper(Base, TimestampMixin):
     ingested: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false"), default=False
     )
+    paper_summary: Mapped[str | None] = mapped_column(String, nullable=True)
 
     if TYPE_CHECKING:
         from .user import User  # pragma: no cover
+        from .usability import Usability  # pragma: no cover
     user: Mapped["User"] = relationship("User", back_populates="papers")
+    usabilities: Mapped[list["Usability"]] = relationship(
+        "Usability", back_populates="paper", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"Paper(id={self.id}, title={self.title}, arxiv_id={self.arxiv_id})"

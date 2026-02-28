@@ -38,6 +38,7 @@ async def create_paper(user_id: int, payload: PaperCreate) -> PaperResponse:
                 published_date=payload.published_date,
                 institution=payload.institution,
                 date_published=payload.date_published,
+                paper_summary="",
             )
             session.add(paper)
             await session.commit()
@@ -75,6 +76,7 @@ async def create_paper(user_id: int, payload: PaperCreate) -> PaperResponse:
                 date_published=paper.date_published,
                 created_at=paper.created_at,
                 ingested=paper.ingested,
+                paper_summary=paper.paper_summary,
             )
     except HTTPException:
         raise
@@ -123,6 +125,7 @@ async def get_paper(paper_id: int, user_id: int) -> PaperResponse:
                 date_published=paper.date_published,
                 created_at=paper.created_at,
                 ingested=paper.ingested,
+                paper_summary=paper.paper_summary,
             )
     except HTTPException:
         raise
@@ -165,6 +168,7 @@ async def get_all_papers(user_id: int) -> list[PaperResponse]:
                     date_published=paper.date_published,
                     created_at=paper.created_at,
                     ingested=paper.ingested,
+                    paper_summary=paper.paper_summary,
                 )
                 for paper in papers
             ]
@@ -183,6 +187,62 @@ async def get_all_papers(user_id: int) -> list[PaperResponse]:
             f"Unexpected error retrieving papers for user_id={user_id}: {str(e)}"
         )
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+async def update_paper(
+    paper_id: int, user_id: int, payload: PaperCreate
+) -> PaperResponse:
+    try:
+        async with session_pool() as session:
+            result = await session.execute(
+                select(Paper).where(Paper.id == paper_id, Paper.user_id == user_id)
+            )
+            paper = result.scalar_one_or_none()
+            if not paper:
+                raise HTTPException(status_code=404, detail="Paper not found")
+
+            # Update fields
+            paper.title = payload.title
+            paper.abstract = payload.abstract
+            paper.authors = payload.authors
+            paper.arxiv_id = payload.arxiv_id
+            paper.pdf_url = payload.pdf_url
+            paper.paper_url = payload.paper_url
+            paper.github_url = payload.github_url
+            paper.topics = payload.topics
+            paper.published_date = payload.published_date
+            paper.institution = payload.institution
+            paper.date_published = payload.date_published
+
+            await session.commit()
+            await session.refresh(paper)
+
+            return PaperResponse(
+                id=paper.id,
+                user_id=paper.user_id,
+                title=paper.title,
+                abstract=paper.abstract,
+                authors=paper.authors,
+                arxiv_id=paper.arxiv_id,
+                pdf_url=paper.pdf_url,
+                paper_url=paper.paper_url,
+                github_url=paper.github_url,
+                topics=paper.topics,
+                published_date=paper.published_date,
+                thumbnail_url=paper.thumbnail_url,
+                institution=paper.institution,
+                date_published=paper.date_published,
+                created_at=paper.created_at,
+                ingested=paper.ingested,
+                paper_summary=paper.paper_summary,
+            )
+    except HTTPException:
+        raise
+    except DBAPIError as e:
+        logger.exception(
+            f"Database connection error updating paper id={paper_id}: {str(e)}"
+        )
+        raise DatabaseConnectionError(str(e))
 
 
 async def delete_paper(paper_id: int, user_id: int) -> None:

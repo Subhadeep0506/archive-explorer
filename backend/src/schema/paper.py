@@ -35,6 +35,7 @@ class PaperResponse(BaseModel):
     date_published: Optional[str] = None
     created_at: datetime
     ingested: bool
+    paper_summary: Optional[str] = None
 
 
 class BulkDeletePapers(BaseModel):

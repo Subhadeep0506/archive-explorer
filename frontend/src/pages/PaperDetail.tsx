@@ -1,11 +1,12 @@
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PaperPdfViewer } from "@/components/PdfViewer";
+import { UsabilityChart } from "@/components/UsabilityChart";
 import {
   ArrowLeft,
   Calendar,
@@ -27,8 +28,22 @@ import { useAuth } from "@/context/AuthContext";
 import { useSearch } from "@/context/SearchContext";
 import { fetchPaperById } from "@/lib/arxiv";
 import { normalizeArxivEntry } from "@/lib/papers";
-import { savePaper, getSavedPapers, ingestPaper } from "@/lib/api";
+import {
+  savePaper,
+  getSavedPapers,
+  ingestPaper,
+  getSummaryAndUsability,
+  generateSummary,
+  generateUsability,
+} from "@/lib/api";
 import type { Paper } from "@/types/paper";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import remarkGfm from "remark-gfm";
+import rehypeKatex from "rehype-katex";
+import rehypeHighlight from "rehype-highlight";
+import "katex/dist/katex.min.css";
+import "highlight.js/styles/github-dark.css";
 
 export default function PaperDetail() {
   const { id } = useParams<{ id: string }>();
@@ -48,6 +63,9 @@ export default function PaperDetail() {
     queryKey: ["paper", id],
     queryFn: () => fetchPaperById(id!, accessToken),
     enabled: Boolean(id && accessToken && !statePaper),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+    refetchOnWindowFocus: false,
   });
 
   const paper = statePaper || (data ? normalizeArxivEntry(data) : undefined);
@@ -56,6 +74,24 @@ export default function PaperDetail() {
     queryKey: ["savedPapers"],
     queryFn: () => getSavedPapers(accessToken),
     enabled: Boolean(accessToken),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  // Fetch summary and usability data
+  const {
+    data: summaryData,
+    isLoading: isSummaryLoading,
+    refetch: refetchSummary,
+  } = useQuery({
+    queryKey: ["summary", id],
+    queryFn: () => getSummaryAndUsability(id!, accessToken),
+    enabled: Boolean(id && accessToken && paper),
+    retry: false,
+    staleTime: 1000 * 60 * 15, // 15 minutes - summary/usability rarely changes
+    gcTime: 1000 * 60 * 60, // 60 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false, // Don't refetch on component remount if data exists
   });
 
   const isSaved = savedPapers?.some((sp) => sp.arxiv_id === paper?.id);
@@ -82,6 +118,28 @@ export default function PaperDetail() {
     },
     onError: (error) => {
       toast.error(`Failed to save paper: ${error.message}`);
+    },
+  });
+
+  const generateSummaryMutation = useMutation({
+    mutationFn: () => generateSummary(id!, accessToken),
+    onSuccess: () => {
+      toast.success("Summary generated successfully!");
+      refetchSummary();
+    },
+    onError: (error) => {
+      toast.error(`Failed to generate summary: ${error.message}`);
+    },
+  });
+
+  const generateUsabilityMutation = useMutation({
+    mutationFn: () => generateUsability(id!, accessToken),
+    onSuccess: () => {
+      toast.success("Usability metrics generated successfully!");
+      refetchSummary();
+    },
+    onError: (error) => {
+      toast.error(`Failed to generate usability metrics: ${error.message}`);
     },
   });
 
@@ -113,33 +171,35 @@ export default function PaperDetail() {
       })
     : "Date pending";
 
-  const aiSummary = `## Key Findings
+  const aiSummary = summaryData?.summary;
+  const usabilityMetrics = summaryData?.usability;
 
-This research presents significant advancements in the field with several notable contributions:
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto py-6 px-4">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <Loader2 className="w-12 h-12 animate-spin text-chip-violet" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-### Main Contributions
-1. **Novel Architecture**: The paper introduces a new approach that improves upon existing methods by optimizing key computational bottlenecks.
-2. **Empirical Validation**: Extensive experiments demonstrate the effectiveness of the proposed method across multiple benchmark datasets.
-3. **Practical Applications**: The work has direct implications for real-world deployment in production systems.
-
-### Methodology
-The authors employ a combination of theoretical analysis and empirical evaluation to validate their claims. The experimental setup includes:
-- Multiple baseline comparisons
-- Ablation studies to understand component contributions
-- Statistical significance testing
-
-### Results Summary
-| Metric | Proposed | Baseline | Improvement |
-|--------|----------|----------|-------------|
-| Accuracy | 94.2% | 89.1% | +5.1% |
-| Speed | 2.3ms | 8.7ms | 3.8x faster |
-| Memory | 512MB | 2.1GB | 4x reduction |
-
-### Limitations
-The authors acknowledge certain limitations including dataset-specific optimizations and the need for further validation on edge cases.
-
-### Future Directions
-The paper suggests several promising research directions for future work, including scaling to larger models and exploring cross-domain applications.`;
+  if (!paper) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto py-6 px-4">
+          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+            <p className="text-lg text-muted-foreground">Paper not found</p>
+            <Button onClick={() => navigate("/app")}>Back to Dashboard</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -267,7 +327,7 @@ The paper suggests several promising research directions for future work, includ
               <CardHeader className="pb-1 space-y-1">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <FileText className="w-5 h-5 text-chip-violet" />
-                  Interactive Paper Preview
+                  Paper Preview
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -291,105 +351,196 @@ The paper suggests several promising research directions for future work, includ
           </div>
 
           <div className="lg:col-span-2">
-            <Card
-              className="sticky top-24 animate-slide-in-right"
-              style={{ opacity: 0 }}
-            >
-              <CardHeader className="border-b bg-gradient-to-r from-chip-violet-bg to-chip-blue-bg">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Sparkles className="w-5 h-5 text-chip-violet" />
-                  AI-Generated Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 max-h-[calc(100vh-12rem)] overflow-y-auto scrollbar-thin">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  {aiSummary.split("\n").map((line, index) => {
-                    if (line.startsWith("## ")) {
-                      return (
-                        <h2
-                          key={index}
-                          className="text-lg font-bold mt-4 mb-2 text-foreground"
-                        >
-                          {line.replace("## ", "")}
-                        </h2>
-                      );
-                    }
-                    if (line.startsWith("### ")) {
-                      return (
-                        <h3
-                          key={index}
-                          className="text-base font-semibold mt-3 mb-1 text-foreground"
-                        >
-                          {line.replace("### ", "")}
-                        </h3>
-                      );
-                    }
-                    if (line.startsWith("| ")) {
-                      return (
-                        <div
-                          key={index}
-                          className="text-sm text-muted-foreground font-mono bg-muted/50 px-2 py-0.5 rounded"
-                        >
-                          {line}
-                        </div>
-                      );
-                    }
-                    if (
-                      line.startsWith("1. ") ||
-                      line.startsWith("2. ") ||
-                      line.startsWith("3. ")
-                    ) {
-                      const [num, ...rest] = line.split(". ");
-                      const content = rest.join(". ");
-                      const boldMatch = content.match(/\*\*(.*?)\*\*(.*)/);
-                      if (boldMatch) {
-                        return (
-                          <p
-                            key={index}
-                            className="text-sm text-muted-foreground my-1 ml-4"
-                          >
-                            {num}.{" "}
-                            <strong className="text-foreground">
-                              {boldMatch[1]}
+            {/* Sticky container for both AI Summary and Usability */}
+            <div className="sticky top-24 space-y-6 max-h-[calc(100vh-7rem)] overflow-y-auto scrollbar-thin">
+              {/* AI Summary Card */}
+              <Card
+                className="animate-slide-in-right overflow-hidden"
+                style={{ opacity: 0 }}
+              >
+                <CardHeader className="border-b bg-gradient-to-r from-chip-violet-bg to-chip-blue-bg rounded-t-lg">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Sparkles className="w-5 h-5 text-chip-violet" />
+                    AI-Generated Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  {isSummaryLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-chip-violet" />
+                    </div>
+                  ) : aiSummary ? (
+                    <div className="markdown-content">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex, rehypeHighlight]}
+                        components={{
+                          h2: ({ children }) => (
+                            <h2 className="text-lg font-bold mt-4 mb-2 text-foreground">
+                              {children}
+                            </h2>
+                          ),
+                          h3: ({ children }) => (
+                            <h3 className="text-base font-semibold mt-3 mb-1 text-foreground">
+                              {children}
+                            </h3>
+                          ),
+                          p: ({ children }) => (
+                            <p className="text-sm text-muted-foreground my-2 leading-relaxed">
+                              {children}
+                            </p>
+                          ),
+                          ul: ({ children }) => (
+                            <ul className="list-disc list-outside text-sm text-muted-foreground my-2 ml-6 space-y-1">
+                              {children}
+                            </ul>
+                          ),
+                          ol: ({ children }) => (
+                            <ol className="list-decimal list-outside text-sm text-muted-foreground my-2 ml-6 space-y-1">
+                              {children}
+                            </ol>
+                          ),
+                          li: ({ children }) => (
+                            <li className="text-muted-foreground">
+                              {children}
+                            </li>
+                          ),
+                          table: ({ children }) => (
+                            <div className="overflow-x-auto my-4">
+                              <table className="w-full text-sm border border-border">
+                                {children}
+                              </table>
+                            </div>
+                          ),
+                          thead: ({ children }) => (
+                            <thead className="bg-muted">{children}</thead>
+                          ),
+                          tbody: ({ children }) => <tbody>{children}</tbody>,
+                          tr: ({ children }) => <tr>{children}</tr>,
+                          th: ({ children }) => (
+                            <th className="px-4 py-2 text-left font-semibold text-foreground border border-border bg-muted">
+                              {children}
+                            </th>
+                          ),
+                          td: ({ children }) => (
+                            <td className="px-4 py-2 text-muted-foreground border border-border">
+                              {children}
+                            </td>
+                          ),
+                          code: ({ className, children, ...props }) => {
+                            const isInline = !className;
+                            return isInline ? (
+                              <code
+                                className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono text-foreground"
+                                {...props}
+                              >
+                                {children}
+                              </code>
+                            ) : (
+                              <code
+                                className={`block bg-muted p-3 rounded text-sm font-mono overflow-x-auto ${className || ""}`}
+                                {...props}
+                              >
+                                {children}
+                              </code>
+                            );
+                          },
+                          pre: ({ children }) => (
+                            <pre className="bg-muted p-3 rounded text-sm font-mono overflow-x-auto my-3 border border-border">
+                              {children}
+                            </pre>
+                          ),
+                          strong: ({ children }) => (
+                            <strong className="font-semibold text-foreground">
+                              {children}
                             </strong>
-                            {boldMatch[2]}
-                          </p>
-                        );
-                      }
-                      return (
-                        <p
-                          key={index}
-                          className="text-sm text-muted-foreground my-1 ml-4"
-                        >
-                          {line}
-                        </p>
-                      );
-                    }
-                    if (line.startsWith("- ")) {
-                      return (
-                        <p
-                          key={index}
-                          className="text-sm text-muted-foreground my-1 ml-6"
-                        >
-                          {line}
-                        </p>
-                      );
-                    }
-                    if (line.trim() === "") {
-                      return <div key={index} className="h-2" />;
-                    }
-                    return (
-                      <p
-                        key={index}
-                        className="text-sm text-muted-foreground my-2"
+                          ),
+                          em: ({ children }) => (
+                            <em className="italic text-foreground">
+                              {children}
+                            </em>
+                          ),
+                        }}
                       >
-                        {line}
+                        {aiSummary}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 gap-4">
+                      <p className="text-sm text-muted-foreground text-center">
+                        No summary available yet.
                       </p>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+                      <Button
+                        onClick={() => generateSummaryMutation.mutate()}
+                        disabled={generateSummaryMutation.isPending}
+                        className="bg-chip-violet hover:bg-chip-violet/90"
+                      >
+                        {generateSummaryMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Generate Summary
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Usability Metrics Card */}
+              <Card
+                className="animate-slide-in-right overflow-hidden"
+                style={{ animationDelay: "0.05s", opacity: 0 }}
+              >
+                {isSummaryLoading ? (
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-chip-emerald" />
+                    </div>
+                  </CardContent>
+                ) : usabilityMetrics ? (
+                  <UsabilityChart usability={usabilityMetrics} />
+                ) : (
+                  <>
+                    <CardHeader className="border-b bg-gradient-to-r from-chip-emerald-bg to-chip-teal-bg rounded-t-lg">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Sparkles className="w-5 h-5 text-chip-emerald" />
+                        Usability Metrics
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      <div className="flex flex-col items-center justify-center py-12 gap-4">
+                        <p className="text-sm text-muted-foreground text-center">
+                          No usability metrics available yet.
+                        </p>
+                        <Button
+                          onClick={() => generateUsabilityMutation.mutate()}
+                          disabled={generateUsabilityMutation.isPending}
+                          className="bg-chip-emerald hover:bg-chip-emerald/90"
+                        >
+                          {generateUsabilityMutation.isPending ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4 mr-2" />
+                              Generate Metrics
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </>
+                )}
+              </Card>
+            </div>
           </div>
         </div>
       </div>
