@@ -103,8 +103,8 @@ export function PaperCard({
           ) : (
             <div className="h-full w-full bg-gradient-to-br from-primary/10 via-primary/5 to-accent" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/0" />
-          <div className="absolute bottom-3 left-3 right-3 text-xs text-white/80 line-clamp-2">
+          <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/0" />
+          <div className="absolute bottom-3 left-3 right-3 text-xs text-black/80 dark:text-white/80 line-clamp-2">
             {abstractPreview}
           </div>
         </div>

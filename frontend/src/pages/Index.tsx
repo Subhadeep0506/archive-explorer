@@ -6,7 +6,6 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { Loader2, Search, RefreshCw } from "lucide-react";
-import { Navbar } from "@/components/Navbar";
 import { FilterSidebar } from "@/components/FilterSidebar";
 import { ViewToggle } from "@/components/ViewToggle";
 import { PaperCard } from "@/components/PaperCard";
@@ -17,16 +16,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { fetchArxivFeed, DEFAULT_TOPICS } from "@/lib/arxiv";
 import { useAuth } from "@/context/AuthContext";
+import { useUserData } from "@/context/UserDataContext";
 import { useSearch } from "@/context/SearchContext";
 import { normalizeArxivEntry } from "@/lib/papers";
-import { apiRequest, getSavedPapers } from "@/lib/api";
-import { Profile } from "@/types/profile";
+import { getSavedPapers } from "@/lib/api";
 
 export default function Index() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<Filters>({ topics: [], years: [] });
   const { accessToken } = useAuth();
+  const { profile } = useUserData();
   const { setIsDialogOpen } = useSearch();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -36,12 +36,6 @@ export default function Index() {
       setIsDialogOpen(true);
     }
   }, [location.state, setIsDialogOpen]);
-
-  const { data: profile } = useQuery({
-    queryKey: ["profile"],
-    queryFn: () => apiRequest<Profile>("/profile", { token: accessToken }),
-    enabled: Boolean(accessToken),
-  });
 
   const { data: savedPapers } = useQuery({
     queryKey: ["savedPapers"],
@@ -112,9 +106,7 @@ export default function Index() {
   };
 
   return (
-    <div className="h-screen bg-background flex flex-col">
-      <Navbar />
-
+    <div className="h-[calc(100vh-4rem)] bg-background flex flex-col">
       <div className="flex flex-1 overflow-hidden">
         <FilterSidebar
           topicFilters={topicFilters}

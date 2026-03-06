@@ -14,7 +14,9 @@ async def ingest_paper(payload: PaperIngest, user_id: int) -> dict:
     """Ingest a paper into the vector store using the provided URL."""
     try:
         await IngestionEngine.ingest_paper_using_paper_id(
-            paper_url=payload.paper_url, embedding_model=payload.embedding_model
+            paper_id=payload.arxiv_id,
+            paper_url=payload.paper_url,
+            embedding_model=payload.embedding_model,
         )
         await _set_ingested_flag(
             user_id=user_id,

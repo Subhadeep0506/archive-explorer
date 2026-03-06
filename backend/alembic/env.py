@@ -51,6 +51,18 @@ def run_migrations_offline() -> None:
     even need a DBAPI to be available.
     """
 
+    def include_object(object, name, type_, reflected, compare_to):
+        """Exclude checkpoint tables managed by LangGraph."""
+        if type_ == "table":
+            if name in [
+                "checkpoints",
+                "checkpoint_blobs",
+                "checkpoint_writes",
+                "checkpoint_migrations",
+            ]:
+                return False
+        return True
+
     url = get_url()
     context.configure(
         url=url,
@@ -59,6 +71,7 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
         compare_server_default=True,
+        include_object=include_object,  # Add the filter
     )
 
     with context.begin_transaction():
@@ -82,11 +95,30 @@ async def run_async_migrations() -> None:
 
 
 def _do_run_migrations(connection: Connection) -> None:
+    """Configure migration context with table filtering."""
+
+    def include_object(object, name, type_, reflected, compare_to):
+        """
+        Exclude checkpoint tables from migrations.
+        These tables are managed by LangGraph, not by our SQLAlchemy models.
+        """
+        if type_ == "table":
+            # Ignore LangGraph checkpoint tables
+            if name in [
+                "checkpoints",
+                "checkpoint_blobs",
+                "checkpoint_writes",
+                "checkpoint_migrations",
+            ]:
+                return False
+        return True
+
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
         compare_server_default=True,
+        include_object=include_object,  # Add the filter
     )
 
     with context.begin_transaction():

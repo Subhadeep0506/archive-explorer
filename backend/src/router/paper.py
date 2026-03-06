@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, UploadFile, File, Form
 from typing import List
 
 from ..controller import paper as paper_controller
@@ -25,6 +25,34 @@ async def get_saved_paper(paper_id: int, user_id: int = Depends(get_current_user
 async def add_paper(payload: PaperCreate, user_id: int = Depends(get_current_user)):
     """Add a paper; generates and stores its thumbnail automatically."""
     return await paper_controller.create_paper(user_id, payload)
+
+
+@router.post("/upload", response_model=PaperResponse)
+async def upload_paper_pdf(
+    file: UploadFile = File(...),
+    title: str = Form(...),
+    abstract: str = Form(...),
+    authors: str = Form(...),
+    github_url: str = Form(None),
+    topics: str = Form(None),
+    published_date: str = Form(None),
+    institution: str = Form(None),
+    date_published: str = Form(None),
+    user_id: int = Depends(get_current_user),
+):
+    """Upload a custom PDF paper with metadata. The PDF will be stored and made available for ingestion."""
+    return await paper_controller.create_paper_from_upload(
+        user_id=user_id,
+        file=file,
+        title=title,
+        abstract=abstract,
+        authors=authors,
+        github_url=github_url,
+        topics=topics,
+        published_date=published_date,
+        institution=institution,
+        date_published=date_published,
+    )
 
 
 @router.delete("/bulk", response_model=dict)

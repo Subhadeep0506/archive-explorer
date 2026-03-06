@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -73,6 +73,7 @@ export default function SavedPapers() {
   const [selectedPapers, setSelectedPapers] = useState<Set<number>>(new Set());
   const [bulkDeleteMode, setBulkDeleteMode] = useState(false);
   const [ingestingPaperId, setIngestingPaperId] = useState<number | null>(null);
+  const [deletingPaperId, setDeletingPaperId] = useState<number | null>(null);
 
   // Search and filter state
   const [searchText, setSearchText] = useState("");
@@ -207,13 +208,18 @@ export default function SavedPapers() {
       // Then delete from database
       return deleteSavedPaper(paperId, accessToken);
     },
+    onMutate: (paperId) => {
+      setDeletingPaperId(paperId);
+    },
     onSuccess: () => {
       toast.success("Paper deleted successfully!");
       queryClient.invalidateQueries({ queryKey: ["saved-papers"] });
       setPaperToDelete(null);
+      setDeletingPaperId(null);
     },
     onError: (error) => {
       toast.error(`Failed to delete paper: ${error.message}`);
+      setDeletingPaperId(null);
     },
   });
 
@@ -327,18 +333,11 @@ export default function SavedPapers() {
     setSelectedPapers(new Set());
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  const showTableLoading = isLoading && !savedPapers;
 
   if (error) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
         <div className="container mx-auto py-12 text-center">
           <h1 className="text-2xl font-bold mb-4">
             Error loading saved papers
@@ -359,8 +358,6 @@ export default function SavedPapers() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
-
       <div className="container mx-auto py-6 px-4">
         <div className="flex items-center gap-4 mb-6">
           <Link to="/app">
@@ -404,7 +401,7 @@ export default function SavedPapers() {
                 </>
               ) : (
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
                   onClick={toggleBulkDeleteMode}
                 >
@@ -580,7 +577,19 @@ export default function SavedPapers() {
           </CardContent>
         </Card>
 
-        {!savedPapers || savedPapers.length === 0 ? (
+        {showTableLoading ? (
+          <Card>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </div>
+            </CardContent>
+          </Card>
+        ) : !savedPapers || savedPapers.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
               <div className="text-muted-foreground">
@@ -797,8 +806,13 @@ export default function SavedPapers() {
                                   size="icon"
                                   className="h-8 w-8"
                                   onClick={(e) => e.stopPropagation()}
+                                  disabled={deletingPaperId === paper.id}
                                 >
-                                  <MoreHorizontal className="w-4 h-4" />
+                                  {deletingPaperId === paper.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <MoreHorizontal className="w-4 h-4" />
+                                  )}
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">

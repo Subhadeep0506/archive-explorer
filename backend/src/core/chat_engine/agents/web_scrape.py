@@ -1,3 +1,5 @@
+import math
+
 from ....lib.web_scrape import FirecrawlLoader
 from ....core.logger import SingletonLogger
 from typing import List
@@ -15,6 +17,7 @@ async def web_crawl_node(state: AgentState):
         f"Performing web crawl for query: {state['query']} with num: {state['top_k']} and topic: {state['web_search_topic']}"
     )
     stream_writer = get_stream_writer()
+
     try:
         stream_writer(
             {
@@ -23,7 +26,9 @@ async def web_crawl_node(state: AgentState):
             }
         )
         search_results = await web_search_node(
-            query=state["query"], num=state["top_k"], topic=state["web_search_topic"]
+            query=f"{state['query']}. Article: {state['paper_title']} by {state['paper_authors']}",
+            num=math.ceil(state["top_k"] * 0.6), # Adjusted to 60% of top_k for web search results
+            topic=state["web_search_topic"],
         )
         stream_writer(
             {
@@ -49,4 +54,4 @@ async def web_crawl_node(state: AgentState):
                 "message": "An error occurred during the web crawl.",
             }
         )
-        return []
+        return {"web_search_results": []}

@@ -8,7 +8,7 @@ from typing import List
 class IngestionEngine:
     @staticmethod
     async def ingest_paper_using_paper_id(
-        paper_url: str, embedding_model: str = "embed-multilingual-v3.0"
+        paper_id: str, paper_url: str, embedding_model: str = "embed-multilingual-v3.0"
     ):
         try:
             embedding = EmbeddingFactory.build_embedding_model(embedding_model)
@@ -18,8 +18,7 @@ class IngestionEngine:
             loader = PyMuPDF4LLMLoader(
                 file_path=paper_url,
             )
-            paper_id = paper_url.split("/")[-1]
-            text_splitter = CharacterTextSplitter(chunk_size=5000, chunk_overlap=1000)
+            text_splitter = CharacterTextSplitter(chunk_size=2000, chunk_overlap=500, separator="\n")
             documents = []
             async for doc in loader.alazy_load():
                 doc.metadata["paper_id"] = paper_id

@@ -131,6 +131,27 @@ export async function uploadAvatar(
     return apiRequest("/profile/avatar", { method: "POST", body: formData, token });
 }
 
+// User Settings API functions
+export async function getUserSettings(
+    token?: string | null
+): Promise<import("@/types/settings").UserSettings> {
+    return apiRequest("/settings", { token });
+}
+
+export async function updateUserSettings(
+    data: import("@/types/settings").UserSettingsUpdate,
+    token?: string | null
+): Promise<import("@/types/settings").UserSettings> {
+    return apiRequest("/settings", { method: "PUT", body: data, token });
+}
+
+// Service Catalog API functions
+export async function getServiceCatalog(
+    token?: string | null
+): Promise<import("@/types/settings").ServiceCatalog[]> {
+    return apiRequest("/settings/services", { token });
+}
+
 // Paper API functions
 export async function savePaper(
     paper: import("@/types/paper").Paper,
@@ -180,10 +201,57 @@ export async function bulkDeleteSavedPapers(
     return apiRequest("/papers/bulk", { method: "DELETE", params: { paper_ids: paperIds }, token });
 }
 
+export async function uploadPaper(
+    file: File,
+    metadata: {
+        title: string;
+        abstract: string;
+        authors: string;
+        github_url?: string;
+        topics?: string;
+        published_date?: string;
+        institution?: string;
+        date_published?: string;
+    },
+    token?: string | null
+): Promise<import("@/types/paper").SavedPaper> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("title", metadata.title);
+    formData.append("abstract", metadata.abstract);
+    formData.append("authors", metadata.authors);
+
+    if (metadata.github_url) formData.append("github_url", metadata.github_url);
+    if (metadata.topics) formData.append("topics", metadata.topics);
+    if (metadata.published_date) formData.append("published_date", metadata.published_date);
+    if (metadata.institution) formData.append("institution", metadata.institution);
+    if (metadata.date_published) formData.append("date_published", metadata.date_published);
+
+    const url = `${API_BASE_URL}/papers/upload`;
+    const headers: Record<string, string> = {};
+
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Failed to upload paper");
+    }
+
+    return response.json();
+}
+
 // Ingestion API functions
 interface IngestPaperOptions {
     paperUrl: string;
-    arxivId?: string;
+    arxivId: string;
     embeddingModel?: string;
     token?: string | null;
 }
@@ -223,9 +291,131 @@ export async function generateSummary(
     return apiRequest(`/summary/${arxivId}`, { method: "POST", token });
 }
 
+export async function generateSummaryFlexible(
+    request: import("@/types/summary").GenerateSummaryRequest,
+    token?: string | null
+): Promise<import("@/types/summary").GenerateSummaryResponse> {
+    return apiRequest("/summary/generate", {
+        method: "POST",
+        body: request,
+        token
+    });
+}
+
 export async function generateUsability(
     arxivId: string,
     token?: string | null
 ): Promise<import("@/types/summary").GenerateUsabilityResponse> {
     return apiRequest(`/summary/${arxivId}/usability`, { method: "POST", token });
+}
+
+export async function generateUsabilityFlexible(
+    request: import("@/types/summary").GenerateUsabilityRequest,
+    token?: string | null
+): Promise<import("@/types/summary").GenerateUsabilityResponse> {
+    return apiRequest("/summary/usability/generate", {
+        method: "POST",
+        body: request,
+        token
+    });
+}
+
+// Session API functions
+export async function getSessions(
+    token?: string | null
+): Promise<import("@/types/chat").Session[]> {
+    return apiRequest("/sessions", { token });
+}
+
+export async function getSession(
+    sessionId: number,
+    token?: string | null
+): Promise<import("@/types/chat").Session> {
+    return apiRequest(`/sessions/${sessionId}`, { token });
+}
+
+export async function createSession(
+    data: import("@/types/chat").SessionCreate,
+    token?: string | null
+): Promise<import("@/types/chat").Session> {
+    return apiRequest("/sessions", { method: "POST", body: data, token });
+}
+
+export async function updateSession(
+    sessionId: number,
+    data: import("@/types/chat").SessionUpdate,
+    token?: string | null
+): Promise<import("@/types/chat").Session> {
+    return apiRequest(`/sessions/${sessionId}`, { method: "PUT", body: data, token });
+}
+
+export async function deleteSession(
+    sessionId: number,
+    token?: string | null
+): Promise<void> {
+    return apiRequest(`/sessions/${sessionId}`, { method: "DELETE", token });
+}
+
+// Message API functions
+export async function getMessagesBySession(
+    sessionId: number,
+    token?: string | null
+): Promise<import("@/types/chat").Message[]> {
+    return apiRequest(`/messages/session/${sessionId}`, { token });
+}
+
+export async function getMessage(
+    messageId: number,
+    token?: string | null
+): Promise<import("@/types/chat").Message> {
+    return apiRequest(`/messages/${messageId}`, { token });
+}
+
+export async function updateMessage(
+    messageId: number,
+    data: import("@/types/chat").MessageUpdate,
+    token?: string | null
+): Promise<import("@/types/chat").Message> {
+    return apiRequest(`/messages/${messageId}`, { method: "PUT", body: data, token });
+}
+
+export async function deleteMessage(
+    messageId: number,
+    token?: string | null
+): Promise<void> {
+    return apiRequest(`/messages/${messageId}`, { method: "DELETE", token });
+}
+
+// Chat query API function (returns SSE stream)
+export async function queryChatStream(
+    data: import("@/types/chat").ChatQueryRequest,
+    token?: string | null
+): Promise<Response> {
+    const url = buildUrl("/chat/query");
+    const finalHeaders = new Headers();
+    finalHeaders.set("Content-Type", "application/json");
+
+    const resolvedToken = token ?? (typeof window !== "undefined" ? window.localStorage.getItem(ACCESS_TOKEN_KEY) : null);
+    if (resolvedToken) {
+        finalHeaders.set("Authorization", `Bearer ${resolvedToken}`);
+    }
+
+    const response = await fetch(url, {
+        method: "POST",
+        headers: finalHeaders,
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        let message = response.statusText || "Request failed";
+        try {
+            const errorData = await response.json();
+            message = errorData?.detail || errorData?.message || message;
+        } catch (error) {
+            // Ignore JSON parse errors
+        }
+        throw new Error(message);
+    }
+
+    return response;
 }

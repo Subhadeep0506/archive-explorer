@@ -6,6 +6,7 @@ from .profile import Profile
 from .paper import Paper
 from .user import User
 from .user_settings import UserSettings
+from .service_catalog import ServiceCatalog
 
 __all__ = [
     "Session",
@@ -16,4 +17,5 @@ __all__ = [
     "Paper",
     "User",
     "UserSettings",
+    "ServiceCatalog",
 ]

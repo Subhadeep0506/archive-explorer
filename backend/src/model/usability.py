@@ -18,7 +18,7 @@ class Usability(Base, TimestampMixin):
         ForeignKey("paper.id"), nullable=False, index=True
     )
     domain_applicability: Mapped[dict] = mapped_column(JSON, nullable=False)
-    reproducibility_score: Mapped[float] = mapped_column(Float, nullable=False)
+    reproducibility_score: Mapped[dict] = mapped_column(JSON, nullable=False)
     new_tech_applicability: Mapped[dict] = mapped_column(
         JSON, nullable=False, server_default=text("'{}'")
     )

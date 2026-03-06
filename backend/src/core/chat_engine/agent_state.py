@@ -7,6 +7,8 @@ class AgentState(TypedDict):
 
     conversation_id: str
     paper_id: str
+    paper_title: str
+    paper_authors: str
     user_id: str
     messages: List[dict]
     query: str

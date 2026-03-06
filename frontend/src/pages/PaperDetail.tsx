@@ -1,7 +1,6 @@
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +34,8 @@ import {
   getSummaryAndUsability,
   generateSummary,
   generateUsability,
+  generateSummaryFlexible,
+  generateUsabilityFlexible,
 } from "@/lib/api";
 import type { Paper } from "@/types/paper";
 import ReactMarkdown from "react-markdown";
@@ -122,7 +123,14 @@ export default function PaperDetail() {
   });
 
   const generateSummaryMutation = useMutation({
-    mutationFn: () => generateSummary(id!, accessToken),
+    mutationFn: () => {
+      // If paper is saved, use arxiv_id; otherwise use pdf_url
+      if (isSaved) {
+        return generateSummaryFlexible({ arxiv_id: id }, accessToken);
+      } else {
+        return generateSummaryFlexible({ pdf_url: paper!.pdfUrl }, accessToken);
+      }
+    },
     onSuccess: () => {
       toast.success("Summary generated successfully!");
       refetchSummary();
@@ -133,7 +141,17 @@ export default function PaperDetail() {
   });
 
   const generateUsabilityMutation = useMutation({
-    mutationFn: () => generateUsability(id!, accessToken),
+    mutationFn: () => {
+      // If paper is saved, use arxiv_id; otherwise use pdf_url
+      if (isSaved) {
+        return generateUsabilityFlexible({ arxiv_id: id }, accessToken);
+      } else {
+        return generateUsabilityFlexible(
+          { pdf_url: paper!.pdfUrl },
+          accessToken,
+        );
+      }
+    },
     onSuccess: () => {
       toast.success("Usability metrics generated successfully!");
       refetchSummary();
@@ -177,7 +195,6 @@ export default function PaperDetail() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
         <div className="container mx-auto py-6 px-4">
           <div className="flex items-center justify-center min-h-[60vh]">
             <Loader2 className="w-12 h-12 animate-spin text-chip-violet" />
@@ -190,7 +207,6 @@ export default function PaperDetail() {
   if (!paper) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
         <div className="container mx-auto py-6 px-4">
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
             <p className="text-lg text-muted-foreground">Paper not found</p>
@@ -203,8 +219,6 @@ export default function PaperDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
-
       <div className="container mx-auto py-6 px-4">
         <button
           onClick={() =>
@@ -319,7 +333,19 @@ export default function PaperDetail() {
                 </Button>
               </div>
             </div>
-
+            <Card
+              className="animate-fade-in"
+              style={{ animationDelay: "0.15s", opacity: 0 }}
+            >
+              <CardHeader>
+                <CardTitle className="text-lg">Abstract</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground leading-relaxed">
+                  {paper.abstract}
+                </p>
+              </CardContent>
+            </Card>
             <Card
               className="animate-fade-in"
               style={{ animationDelay: "0.1s", opacity: 0 }}
@@ -332,20 +358,6 @@ export default function PaperDetail() {
               </CardHeader>
               <CardContent>
                 <PaperPdfViewer paper={paper} />
-              </CardContent>
-            </Card>
-
-            <Card
-              className="animate-fade-in"
-              style={{ animationDelay: "0.15s", opacity: 0 }}
-            >
-              <CardHeader>
-                <CardTitle className="text-lg">Abstract</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground leading-relaxed">
-                  {paper.abstract}
-                </p>
               </CardContent>
             </Card>
           </div>

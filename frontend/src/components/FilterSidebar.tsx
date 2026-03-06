@@ -108,7 +108,7 @@ export function FilterSidebar({
   };
 
   return (
-    <aside className="w-72 flex-shrink-0 border-r bg-sidebar p-5 overflow-y-auto scrollbar-thin h-full">
+    <aside className="w-72 flex-shrink-0 border-r bg-sidebar p-5 h-full overflow-hidden">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-lg font-bold">Filters</h2>
         {hasActiveFilters && (

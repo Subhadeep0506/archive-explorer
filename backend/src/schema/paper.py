@@ -7,8 +7,8 @@ class PaperCreate(BaseModel):
     title: str
     abstract: str
     authors: str
-    arxiv_id: str
-    pdf_url: str
+    arxiv_id: Optional[str] = None
+    pdf_url: Optional[str] = None
     paper_url: Optional[str] = None
     github_url: Optional[str] = None
     topics: Optional[str] = None
@@ -16,6 +16,21 @@ class PaperCreate(BaseModel):
     institution: Optional[str] = None
     date_published: Optional[str] = None
     thumbnail_url: Optional[str] = None
+    paper_source: Optional[str] = "arxiv"
+
+
+class PaperUploadMetadata(BaseModel):
+    """Metadata for uploaded PDF papers (non-arxiv)"""
+
+    title: str
+    abstract: str
+    authors: str
+    # Optional fields
+    github_url: Optional[str] = None
+    topics: Optional[str] = None
+    published_date: Optional[str] = None
+    institution: Optional[str] = None
+    date_published: Optional[str] = None
 
 
 class PaperResponse(BaseModel):
@@ -24,8 +39,8 @@ class PaperResponse(BaseModel):
     title: str
     abstract: str
     authors: str
-    arxiv_id: str
-    pdf_url: str
+    arxiv_id: Optional[str] = None
+    pdf_url: Optional[str] = None
     paper_url: Optional[str] = None
     github_url: Optional[str] = None
     topics: Optional[str] = None
@@ -36,6 +51,7 @@ class PaperResponse(BaseModel):
     created_at: datetime
     ingested: bool
     paper_summary: Optional[str] = None
+    paper_source: Optional[str] = "arxiv"
 
 
 class BulkDeletePapers(BaseModel):

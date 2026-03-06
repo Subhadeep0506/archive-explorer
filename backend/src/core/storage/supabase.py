@@ -164,6 +164,55 @@ class SupabaseStorage(StorageProvider):
             SingletonLogger().get_logger().error(f"Upload failed: {e}")
             raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
+    async def upload_pdf(
+        self, file: UploadFile, user_id: int, folder: str = "pdfs"
+    ) -> str:
+        """Upload PDF file to Supabase Storage and return the file key"""
+        # Validate file type
+        if file.content_type != "application/pdf":
+            raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+
+        # Generate unique filename preserving original name
+        original_name = file.filename if file.filename else "document.pdf"
+        file_extension = "pdf"
+        # Sanitize filename and add UUID to avoid conflicts
+        base_name = original_name.replace(".pdf", "").replace(" ", "_")[:50]
+        unique_filename = f"{base_name}_{uuid.uuid4().hex[:8]}.{file_extension}"
+
+        # Create the key path
+        key = SupabaseStorage.build_key(user_id, folder, unique_filename)
+
+        try:
+            # Read file content
+            file_content = await file.read()
+
+            # Upload to Supabase Storage (wrap blocking boto3 call)
+            await asyncio.to_thread(
+                self.s3_client.put_object,
+                Bucket=self.bucket_name,
+                Key=key,
+                Body=file_content,
+                ContentType="application/pdf",
+            )
+
+            SingletonLogger().get_logger().info(
+                f"Uploaded PDF to storage: key={key} size={len(file_content)} bytes"
+            )
+
+            return key
+
+        except NoCredentialsError as e:
+            SingletonLogger().get_logger().error(f"Storage credentials error: {e}")
+            raise HTTPException(status_code=500, detail="Storage credentials error")
+        except ClientError as e:
+            SingletonLogger().get_logger().error(f"Storage upload error: {e}")
+            raise HTTPException(
+                status_code=500, detail=f"Storage upload error: {str(e)}"
+            )
+        except Exception as e:
+            SingletonLogger().get_logger().error(f"PDF upload failed: {e}")
+            raise HTTPException(status_code=500, detail=f"PDF upload failed: {str(e)}")
+
     def get_file_url(self, file_key: str) -> Optional[str]:
         """Generate public URL for the file"""
         if not file_key:

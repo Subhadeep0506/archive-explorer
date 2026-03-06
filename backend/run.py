@@ -17,7 +17,7 @@ if __name__ == "__main__":
     
     import uvicorn
     
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 8000))
     
     # Run uvicorn with the manually created event loop
     config = uvicorn.Config(

@@ -27,10 +27,14 @@ async def generate_response_node(state: AgentState):
             ]
         )
         system_prompt = """You are an assistant for helping researchers understand scientific papers. You will be provided with a question, a list of retrieved documents relevant to that question, and the results of a web crawl on the topic. Your task is to synthesize this information and generate a concise, informative response that directly answers the question. Use the previous conversation history, retrieved documents and web crawl results as evidence to support your answer, and make sure to cite specific documents or web sources when relevant.
+        
         Retrieved documents:
         {retrieved_docs}
+        
         Web crawl results:
         {web_search_results}
+        
+        Conversation history:
         """
         stream_writer(
             {
@@ -38,22 +42,40 @@ async def generate_response_node(state: AgentState):
                 "message": "Generating response based on retrieved documents and web search results...",
             }
         )
+        # Extract and flatten messages from MessageResponse objects or plain dicts
         messages = state.get("messages", [])
-        messages.extend(
-            [
-                {
-                    "role": "system",
-                    "content": system_prompt.format(
-                        retrieved_docs=docs_context, web_search_results=web_context
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": state.get("query", ""),
-                },
-            ]
-        )
-        response = await llm.ainvoke(messages)
+        flattened_messages = []
+        for msg in messages:
+            # If it's a MessageResponse object, extract the content field
+            if hasattr(msg, "content"):
+                content = msg.content
+            else:
+                content = msg
+
+            # Content can be a single dict or list of dicts
+            if isinstance(content, list):
+                flattened_messages.extend(content)
+            elif isinstance(content, dict):
+                flattened_messages.append(content)
+
+        # Take the last 10 messages for context (5 user-assistant pairs)
+        recent_messages = flattened_messages[-10:]
+
+        new_messages = [
+            {
+                "role": "system",
+                "content": system_prompt.format(
+                    retrieved_docs=docs_context, web_search_results=web_context
+                ),
+            },
+            *recent_messages,
+            {
+                "role": "user",
+                "content": state.get("query", ""),
+            },
+        ]
+
+        response = await llm.ainvoke(new_messages)
         stream_writer(
             {"type": "Generate Response", "message": "Response generation complete."}
         )
@@ -68,10 +90,12 @@ async def generate_response_node(state: AgentState):
         }
     except Exception as e:
         logger.exception(f"Error generating response: {e}")
-        stream_writer({
-            "type": "Generate Response",
-            "message": "An error occurred while generating the response.",
-        })
+        stream_writer(
+            {
+                "type": "Generate Response",
+                "message": "An error occurred while generating the response.",
+            }
+        )
         return {
-            "response": "Sorry, I encountered an error while generating the response.",
+            "response": "Sorry, I encountered an error while generating the response. Try reducing the `top_k` parameter or changing the model.",
         }

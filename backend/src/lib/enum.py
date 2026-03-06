@@ -7,25 +7,53 @@ class UserRole(Enum):
 
 
 class DomainEnum(str, Enum):
-    marketing = "marketing"
-    finance = "finance"
-    legal = "legal"
-    insurance = "insurance"
-    technology = "technology"
+    marketing = "Marketing"
+    finance = "Finance"
+    legal = "Legal"
+    insurance = "Insurance"
+    technology = "Technology"
+    industrial = "Industrial"
+    healthcare = "Healthcare"
+    education = "Education"
+    automobile = "Automobile"
+    agriculture = "Agriculture"
+    telecommunications = "Telecommunications"
+    manufacturing = "Manufacturing"
+    media = "Media"
+
+
+class ReproducibilityEnum(str, Enum):
+    reproducable = "Reproducible"
+    reapplicable = "Reapplicable"
 
 
 class EmergingTechEnum(str, Enum):
-    computer_vision = "computer_vision"
-    nlp = "nlp"
-    agentic_ai = "agentic_ai"
-    rag = "rag"
-    llms = "llms"
-    vlms = "vlms"
-    multimodal_ai = "multimodal_ai"
-    cloud_computing = "cloud_computing"
-    observability = "observability"
-    cybersecurity = "cybersecurity"
-    machine_learning = "machine_learning"
-    deep_learning = "deep_learning"
-    reinforcement_learning = "reinforcement_learning"
-    robotics = "robotics"
+    machine_learning = "Machine Learning"
+    deep_learning = "Deep Learning"
+    computer_vision = "Computer Vision"
+    nlp = "Natural Language Processing"
+    llms = "LLMs"
+    vlms = "VLMs"
+    rag = "RAG"
+    agentic_ai = "Agentic AI"
+    multimodal_ai = "Multimodal AI"
+    cloud_computing = "Cloud Computing"
+    observability = "Observability"
+    cybersecurity = "Cybersecurity"
+    reinforcement_learning = "Reinforcement Learning"
+    robotics = "Robotics"
+
+
+class ServiceType(str, Enum):
+    WEB_SEARCH = "web_search"
+    WEB_SCRAPE = "web_scrape"
+    LLM = "llm"
+    EMBEDDING = "embedding"
+    RERANK = "rerank"
+    VECTOR_STORE = "vector_store"
+
+
+class PaperSourceEnum(str, Enum):
+    ARXIV = "arxiv"
+    USER_UPLOAD = "user_upload"
+    OTHER = "other"

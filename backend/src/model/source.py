@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING
-from sqlalchemy import ForeignKey, Text, String
+from sqlalchemy import ForeignKey, Text, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..database.db import Base, TimestampMixin
 
@@ -14,6 +14,7 @@ class Source(Base, TimestampMixin):
     source_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     source_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    source_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     if TYPE_CHECKING:
         from .message import Message  # pragma: no cover

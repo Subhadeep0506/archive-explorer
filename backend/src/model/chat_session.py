@@ -13,6 +13,9 @@ class Session(Base, TimestampMixin):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("user.id"), nullable=False, index=True
     )
+    paper_id: Mapped[int | None] = mapped_column(
+        ForeignKey("paper.id"), nullable=True, index=True
+    )
     title: Mapped[str] = mapped_column(
         String(100), nullable=False, default="New Session"
     )
@@ -22,11 +25,13 @@ class Session(Base, TimestampMixin):
 
     if TYPE_CHECKING:
         from .user import User  # pragma: no cover
+        from .paper import Paper  # pragma: no cover
 
     user: Mapped["User"] = relationship("User", back_populates="sessions")
     messages: Mapped[list["Message"]] = relationship(
         "Message", back_populates="session", cascade="all, delete-orphan"
     )
+    paper: Mapped["Paper"] = relationship("Paper", back_populates="sessions")
 
     def __repr__(self) -> str:
         return f"Session(id={self.id}, user_id={self.user_id}, started_at={self.started_at})"

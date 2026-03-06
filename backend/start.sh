@@ -9,7 +9,7 @@ else
 fi
 
 # Set default port
-export PORT="${PORT:-8080}"
+export PORT="${PORT:-8000}"
 
 # Run the application
 python run.py

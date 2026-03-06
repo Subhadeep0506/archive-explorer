@@ -4,6 +4,7 @@ from ..vectorstore import VectorStoreFactory
 from ..embedding import EmbeddingFactory
 from ..llm import LLMFactory
 from ...core.logger import SingletonLogger
+from .pdf_parser import load_pdf_content
 
 logger = SingletonLogger().get_logger()
 
@@ -12,19 +13,22 @@ class SummaryEngine:
     """SummaryEngine class for generating summaries of papers."""
 
     @staticmethod
-    async def generate_paper_summary(arxiv_id: str) -> str:
+    async def generate_paper_summary(arxiv_id: str = None, pdf_url: str = None) -> str:
         try:
             embedding = EmbeddingFactory.build_embedding_model()
             vector_store = VectorStoreFactory.build_vector_store(
                 embedding_model=embedding
             )
-            retriever = vector_store.as_retriever(
-                search_kwargs={"filter": {"paper_id": arxiv_id}, "fetch_k": 9999}
-            )
-            docs = await retriever._aget_relevant_documents(query="*", run_manager=None)
-            sorted_docs = await SummaryEngine._sort_docs(docs)
+            if arxiv_id:
+                retriever = vector_store.as_retriever(
+                    search_kwargs={"filter": {"paper_id": arxiv_id}, "fetch_k": 9999}
+                )
+                docs = await retriever._aget_relevant_documents(query="*", run_manager=None)
+                sorted_docs = await SummaryEngine._sort_docs(docs)
+                full_content = "\n\n".join([doc.page_content for doc in sorted_docs])
+            elif pdf_url:
+                full_content = await load_pdf_content(pdf_url)
 
-            full_content = "\n\n".join([doc.page_content for doc in sorted_docs])
             encoding = tiktoken.get_encoding("cl100k_base")
             tokens = encoding.encode(full_content)
             token_limit = 32768

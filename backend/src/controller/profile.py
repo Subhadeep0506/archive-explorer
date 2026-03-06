@@ -25,16 +25,22 @@ async def get_profile(user_id: int) -> ProfileResponse:
             if not profile:
                 raise HTTPException(status_code=404, detail="Profile not found")
 
+            # Clean invalid placeholder values
+            def clean_value(value: str | None) -> str | None:
+                if value in ["string", "null", "undefined", "None"]:
+                    return None
+                return value
+
             # Convert to dict and add avatar_url
             profile_dict = {
                 "id": profile.id,
                 "user_id": profile.user_id,
-                "phone": profile.phone,
-                "bio": profile.bio,
+                "phone": clean_value(profile.phone),
+                "bio": clean_value(profile.bio),
                 "avatar_url": (
                     storage.get_file_url(profile.avatar) if profile.avatar else None
                 ),
-                "topic_preferences": profile.topic_preferences,
+                "topic_preferences": clean_value(profile.topic_preferences),
             }
             return ProfileResponse(**profile_dict)
     except HTTPException:
@@ -68,7 +74,20 @@ async def create_profile(user_id: int, profile_data: ProfileCreate) -> ProfileRe
                 )
                 raise HTTPException(status_code=400, detail="Profile already exists")
 
-            profile = Profile(user_id=user_id, **profile_data.model_dump())
+            # Clean invalid placeholder values
+            def clean_value(value: str | None) -> str | None:
+                if value in ["string", "null", "undefined", "None"]:
+                    return None
+                return value
+
+            data_dict = profile_data.model_dump()
+            data_dict["phone"] = clean_value(data_dict.get("phone"))
+            data_dict["bio"] = clean_value(data_dict.get("bio"))
+            data_dict["topic_preferences"] = clean_value(
+                data_dict.get("topic_preferences")
+            )
+
+            profile = Profile(user_id=user_id, **data_dict)
             session.add(profile)
             await session.commit()
             await session.refresh(profile)
@@ -77,12 +96,12 @@ async def create_profile(user_id: int, profile_data: ProfileCreate) -> ProfileRe
             profile_dict = {
                 "id": profile.id,
                 "user_id": profile.user_id,
-                "phone": profile.phone,
-                "bio": profile.bio,
+                "phone": clean_value(profile.phone),
+                "bio": clean_value(profile.bio),
                 "avatar_url": (
                     storage.get_file_url(profile.avatar) if profile.avatar else None
                 ),
-                "topic_preferences": profile.topic_preferences,
+                "topic_preferences": clean_value(profile.topic_preferences),
             }
             return ProfileResponse(**profile_dict)
     except HTTPException:
@@ -113,8 +132,16 @@ async def update_profile(user_id: int, profile_data: ProfileUpdate) -> ProfileRe
             if not profile:
                 raise HTTPException(status_code=404, detail="Profile not found")
 
+            # Clean invalid placeholder values
+            def clean_value(value: str | None) -> str | None:
+                if value in ["string", "null", "undefined", "None"]:
+                    return None
+                return value
+
             update_data = profile_data.model_dump(exclude_unset=True)
             for field, value in update_data.items():
+                if field in ["phone", "bio", "topic_preferences"]:
+                    value = clean_value(value)
                 setattr(profile, field, value)
 
             await session.commit()
@@ -124,12 +151,12 @@ async def update_profile(user_id: int, profile_data: ProfileUpdate) -> ProfileRe
             profile_dict = {
                 "id": profile.id,
                 "user_id": profile.user_id,
-                "phone": profile.phone,
-                "bio": profile.bio,
+                "phone": clean_value(profile.phone),
+                "bio": clean_value(profile.bio),
                 "avatar_url": (
                     storage.get_file_url(profile.avatar) if profile.avatar else None
                 ),
-                "topic_preferences": profile.topic_preferences,
+                "topic_preferences": clean_value(profile.topic_preferences),
             }
             return ProfileResponse(**profile_dict)
     except HTTPException:
@@ -177,16 +204,22 @@ async def upload_avatar(user_id: int, file: UploadFile) -> ProfileResponse:
             await session.commit()
             await session.refresh(profile)
 
+            # Clean invalid placeholder values
+            def clean_value(value: str | None) -> str | None:
+                if value in ["string", "null", "undefined", "None"]:
+                    return None
+                return value
+
             # Return with avatar URL
             profile_dict = {
                 "id": profile.id,
                 "user_id": profile.user_id,
-                "phone": profile.phone,
-                "bio": profile.bio,
+                "phone": clean_value(profile.phone),
+                "bio": clean_value(profile.bio),
                 "avatar_url": (
                     storage.get_file_url(profile.avatar) if profile.avatar else None
                 ),
-                "topic_preferences": profile.topic_preferences,
+                "topic_preferences": clean_value(profile.topic_preferences),
             }
             return ProfileResponse(**profile_dict)
     except HTTPException:

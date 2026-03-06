@@ -1,137 +1,106 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3 } from "lucide-react";
 import type { UsabilityMetrics } from "@/types/summary";
+import {
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  ResponsiveContainer,
+  Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Cell,
+  PieChart,
+  Pie,
+  Legend,
+} from "recharts";
 
 interface UsabilityChartProps {
   usability: UsabilityMetrics;
 }
 
-// Circular progress component
-function CircularProgress({
-  value,
-  label,
-  size = 120,
+// Color palette
+const COLORS = {
+  primary: "#8b5cf6", // violet
+  secondary: "#3b82f6", // blue
+  tertiary: "#10b981", // emerald
+  quaternary: "#f59e0b", // amber
+  quinary: "#f87171", // coral
+};
+
+// Custom tooltip for radar charts
+const CustomRadarTooltip = ({
+  active,
+  payload,
 }: {
-  value: number;
-  label: string;
-  size?: number;
-}) {
-  const radius = (size - 12) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - value * circumference;
-
-  const getColor = (val: number): string => {
-    if (val >= 0.8) return "#10b981"; // emerald
-    if (val >= 0.6) return "#3b82f6"; // blue
-    if (val >= 0.4) return "#f59e0b"; // amber
-    return "#f87171"; // coral
-  };
-
-  const color = getColor(value);
-
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="transform -rotate-90">
-          {/* Background circle */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="6"
-            className="text-muted opacity-20"
-          />
-          {/* Progress circle */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke={color}
-            strokeWidth="6"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            className="transition-all duration-500 ease-out"
-          />
-        </svg>
-        {/* Center text */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-2xl font-bold" style={{ color }}>
-            {(value * 100).toFixed(0)}%
-          </span>
-        </div>
+  active?: boolean;
+  payload?: Array<{ payload: { name: string }; value: number }>;
+}) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-background border border-border rounded-lg shadow-lg p-3">
+        <p className="text-sm font-semibold text-foreground">
+          {payload[0].payload.name}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Score: {(payload[0].value * 100).toFixed(1)}%
+        </p>
       </div>
-      <span className="text-sm font-medium text-foreground text-center">
-        {label}
-      </span>
-    </div>
-  );
-}
+    );
+  }
+  return null;
+};
 
-// Mini circular progress for domain/tech applicability
-function MiniCircularProgress({
-  value,
-  label,
-  size = 80,
+// Custom tooltip for bar chart
+const CustomBarTooltip = ({
+  active,
+  payload,
 }: {
-  value: number;
-  label: string;
-  size?: number;
-}) {
-  const radius = (size - 8) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - value * circumference;
-
-  const getColor = (val: number): string => {
-    if (val >= 0.8) return "#10b981";
-    if (val >= 0.6) return "#3b82f6";
-    if (val >= 0.4) return "#f59e0b";
-    return "#f87171";
-  };
-
-  const color = getColor(value);
-
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="transform -rotate-90">
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="4"
-            className="text-muted opacity-20"
-          />
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke={color}
-            strokeWidth="4"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            className="transition-all duration-500 ease-out"
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-sm font-bold" style={{ color }}>
-            {(value * 100).toFixed(0)}%
-          </span>
-        </div>
+  active?: boolean;
+  payload?: Array<{ payload: { name: string }; value: number }>;
+}) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-background border border-border rounded-lg shadow-lg p-2">
+        <p className="text-xs font-semibold text-foreground">
+          {payload[0].payload.name}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Score: {(payload[0].value * 100).toFixed(1)}%
+        </p>
       </div>
-      <span className="text-xs text-muted-foreground text-center capitalize max-w-[80px] leading-tight">
-        {label.replace(/_/g, " ")}
-      </span>
-    </div>
-  );
-}
+    );
+  }
+  return null;
+};
+
+// Custom tooltip for pie chart
+const CustomPieTooltip = ({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number }>;
+}) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-background border border-border rounded-lg shadow-lg p-3">
+        <p className="text-sm font-semibold text-foreground">
+          {payload[0].name}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {payload[0].value.toFixed(1)}%
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
 
 export function UsabilityChart({ usability }: UsabilityChartProps) {
   const domainApplicability = Object.entries(
@@ -140,8 +109,33 @@ export function UsabilityChart({ usability }: UsabilityChartProps) {
   const newTechApplicability = Object.entries(
     usability.new_tech_applicability || {},
   );
-  const reproducibilityScore = usability.reproducibility_score || 0;
+  const reproducibilityScore = usability.reproducibility_score || {};
   const impactScore = usability.impact_score || 0;
+
+  // Transform data for radar charts
+  const domainData = domainApplicability.map(([domain, score]) => ({
+    name: domain.replace(/_/g, " "),
+    value: score,
+  }));
+
+  const techData = newTechApplicability.map(([tech, score]) => ({
+    name: tech.replace(/_/g, " "),
+    value: score,
+  }));
+
+  // Transform data for reproducibility bar chart
+  const reproducibilityData = Object.entries(reproducibilityScore).map(
+    ([key, value]) => ({
+      name: key,
+      value: value,
+    }),
+  );
+
+  // Transform data for impact pie chart
+  const impactData = [
+    { name: "Impact Score", value: impactScore * 100 },
+    { name: "Remaining", value: (1 - impactScore) * 100 },
+  ];
 
   return (
     <Card className="w-full overflow-hidden">
@@ -152,51 +146,136 @@ export function UsabilityChart({ usability }: UsabilityChartProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-6 space-y-8">
-        {/* Main Scores */}
-        <div className="flex justify-center items-center gap-8 flex-wrap">
-          <CircularProgress
-            value={reproducibilityScore}
-            label="Reproducibility"
-            size={140}
-          />
-          {impactScore !== null && impactScore !== undefined && (
-            <CircularProgress
-              value={impactScore}
-              label="Impact Score"
-              size={140}
-            />
-          )}
-        </div>
+        {/* Reproducibility Bar Chart */}
+        {reproducibilityData.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-4 text-center">
+              Reproducibility Analysis
+            </h4>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={reproducibilityData}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
+                />
+                <YAxis
+                  tick={{ fill: "hsl(var(--foreground))", fontSize: 10 }}
+                  domain={[0, 1]}
+                  tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+                />
+                <Tooltip content={<CustomBarTooltip />} cursor={false} />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                  {reproducibilityData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={index === 0 ? COLORS.primary : COLORS.secondary}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
-        {/* Domain Applicability */}
-        {domainApplicability.length > 0 && (
+        {/* Domain Applicability Radar Chart */}
+        {domainData.length > 0 && (
           <div>
             <h4 className="text-sm font-semibold text-foreground mb-4 text-center">
               Domain Applicability
             </h4>
-            <div className="flex justify-center items-center gap-6 flex-wrap">
-              {domainApplicability.map(([domain, score]) => (
-                <MiniCircularProgress
-                  key={domain}
-                  value={score}
-                  label={domain}
+            <ResponsiveContainer width="100%" height={400}>
+              <RadarChart data={domainData}>
+                <PolarGrid stroke="hsl(var(--border))" />
+                <PolarAngleAxis
+                  dataKey="name"
+                  tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
                 />
-              ))}
-            </div>
+                <PolarRadiusAxis
+                  angle={90}
+                  domain={[0, 1]}
+                  tick={{ fill: "hsl(var(--foreground))", fontSize: 10 }}
+                  tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+                />
+                <Radar
+                  name="Domain Score"
+                  dataKey="value"
+                  stroke={COLORS.primary}
+                  fill={COLORS.primary}
+                  fillOpacity={0.6}
+                />
+                <Tooltip content={<CustomRadarTooltip />} />
+              </RadarChart>
+            </ResponsiveContainer>
           </div>
         )}
 
-        {/* New Tech Applicability */}
-        {newTechApplicability.length > 0 && (
+        {/* New Tech Applicability Radar Chart */}
+        {techData.length > 0 && (
           <div>
             <h4 className="text-sm font-semibold text-foreground mb-4 text-center">
               Technology Applicability
             </h4>
-            <div className="flex justify-center items-center gap-6 flex-wrap">
-              {newTechApplicability.map(([tech, score]) => (
-                <MiniCircularProgress key={tech} value={score} label={tech} />
-              ))}
-            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              <RadarChart data={techData}>
+                <PolarGrid stroke="hsl(var(--border))" />
+                <PolarAngleAxis
+                  dataKey="name"
+                  tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
+                />
+                <PolarRadiusAxis
+                  angle={90}
+                  domain={[0, 1]}
+                  tick={{ fill: "hsl(var(--foreground))", fontSize: 10 }}
+                  tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+                />
+                <Radar
+                  name="Tech Score"
+                  dataKey="value"
+                  stroke={COLORS.secondary}
+                  fill={COLORS.secondary}
+                  fillOpacity={0.6}
+                />
+                <Tooltip content={<CustomRadarTooltip />} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Impact Score Pie Chart */}
+        {impactScore !== null && impactScore !== undefined && (
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-4 text-center">
+              Overall Impact Score
+            </h4>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={impactData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="value"
+                  label={({ name, value }) =>
+                    name === "Impact Score" ? `${value.toFixed(1)}%` : ""
+                  }
+                  labelLine={false}
+                >
+                  <Cell fill={COLORS.tertiary} />
+                  <Cell fill="hsl(var(--muted))" opacity={0.3} />
+                </Pie>
+                <Tooltip content={<CustomPieTooltip />} />
+                <Legend
+                  formatter={(value, entry) =>
+                    value === "Impact Score" && entry.payload
+                      ? `Impact Score: ${entry.payload.value?.toFixed(1)}%`
+                      : ""
+                  }
+                />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         )}
       </CardContent>

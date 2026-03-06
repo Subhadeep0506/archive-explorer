@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError, DBAPIError
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
+import uuid
 
 from ..database.db import session_pool
 from ..errors import DatabaseConnectionError
@@ -9,6 +10,8 @@ from ..schema.paper import PaperCreate, PaperResponse
 from ..core.logger import SingletonLogger
 from ..core.ingest_engine.ingestion import IngestionEngine
 from ..lib.arxiv import generate_first_page_thumbnail
+from ..core.storage.supabase import SupabaseStorage
+from ..lib.enum import PaperSourceEnum
 
 
 logger = SingletonLogger().get_logger()
@@ -18,12 +21,13 @@ async def create_paper(user_id: int, payload: PaperCreate) -> PaperResponse:
     """Create a paper entry and automatically generate thumbnail."""
     try:
         async with session_pool() as session:
-            # Prevent duplicates by arxiv_id
-            existing = await session.execute(
-                select(Paper).where(Paper.arxiv_id == payload.arxiv_id)
-            )
-            if existing.scalar_one_or_none():
-                raise HTTPException(status_code=400, detail="Paper already exists")
+            # Prevent duplicates by arxiv_id (only if arxiv_id is provided)
+            if payload.arxiv_id:
+                existing = await session.execute(
+                    select(Paper).where(Paper.arxiv_id == payload.arxiv_id)
+                )
+                if existing.scalar_one_or_none():
+                    raise HTTPException(status_code=400, detail="Paper already exists")
 
             paper = Paper(
                 user_id=user_id,
@@ -39,25 +43,27 @@ async def create_paper(user_id: int, payload: PaperCreate) -> PaperResponse:
                 institution=payload.institution,
                 date_published=payload.date_published,
                 paper_summary="",
+                paper_source=payload.paper_source or PaperSourceEnum.ARXIV.value,
             )
             session.add(paper)
             await session.commit()
             await session.refresh(paper)
 
-            # Generate thumbnail after initial insert
-            try:
-                thumb_url = await generate_first_page_thumbnail(
-                    pdf_url=paper.pdf_url, user_id=user_id, target_width=400
-                )
-                if thumb_url:
-                    paper.thumbnail_url = thumb_url
-                    await session.commit()
-                    await session.refresh(paper)
-            except Exception as e:
-                # Non-fatal; keep paper even if thumbnail fails
-                logger.warning(
-                    f"Thumbnail generation failed for arxiv_id={paper.arxiv_id}: {str(e)}"
-                )
+            # Generate thumbnail after initial insert (only if pdf_url is provided)
+            if paper.pdf_url:
+                try:
+                    thumb_url = await generate_first_page_thumbnail(
+                        pdf_url=paper.pdf_url, user_id=user_id, target_width=400
+                    )
+                    if thumb_url:
+                        paper.thumbnail_url = thumb_url
+                        await session.commit()
+                        await session.refresh(paper)
+                except Exception as e:
+                    # Non-fatal; keep paper even if thumbnail fails
+                    logger.warning(
+                        f"Thumbnail generation failed for paper_id={paper.id}: {str(e)}"
+                    )
 
             return PaperResponse(
                 id=paper.id,
@@ -77,23 +83,18 @@ async def create_paper(user_id: int, payload: PaperCreate) -> PaperResponse:
                 created_at=paper.created_at,
                 ingested=paper.ingested,
                 paper_summary=paper.paper_summary,
+                paper_source=paper.paper_source,
             )
     except HTTPException:
         raise
     except DBAPIError as e:
-        logger.exception(
-            f"Database connection error creating paper arxiv_id={payload.arxiv_id}: {str(e)}"
-        )
+        logger.exception(f"Database connection error creating paper: {str(e)}")
         raise DatabaseConnectionError(str(e))
     except SQLAlchemyError as e:
-        logger.error(
-            f"Database error creating paper arxiv_id={payload.arxiv_id}: {str(e)}"
-        )
+        logger.error(f"Database error creating paper: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to create paper")
     except Exception as e:
-        logger.error(
-            f"Unexpected error creating paper arxiv_id={payload.arxiv_id}: {str(e)}"
-        )
+        logger.error(f"Unexpected error creating paper: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -169,6 +170,7 @@ async def get_all_papers(user_id: int) -> list[PaperResponse]:
                     created_at=paper.created_at,
                     ingested=paper.ingested,
                     paper_summary=paper.paper_summary,
+                    paper_source=paper.paper_source,
                 )
                 for paper in papers
             ]
@@ -235,6 +237,7 @@ async def update_paper(
                 created_at=paper.created_at,
                 ingested=paper.ingested,
                 paper_summary=paper.paper_summary,
+                paper_source=paper.paper_source,
             )
     except HTTPException:
         raise
@@ -311,6 +314,103 @@ async def bulk_delete_papers(paper_ids: list[int], user_id: int) -> dict:
         raise HTTPException(status_code=500, detail="Failed to delete papers")
     except Exception as e:
         logger.error(f"Unexpected error deleting papers ids={paper_ids}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+async def create_paper_from_upload(
+    user_id: int,
+    file: UploadFile,
+    title: str,
+    abstract: str,
+    authors: str,
+    github_url: str | None = None,
+    topics: str | None = None,
+    published_date: str | None = None,
+    institution: str | None = None,
+    date_published: str | None = None,
+) -> PaperResponse:
+    """Create a paper from an uploaded PDF file."""
+    try:
+        # Initialize storage
+        storage = SupabaseStorage.from_env()
+
+        # Upload PDF to storage
+        pdf_key = await storage.upload_pdf(file, user_id, "pdfs")
+        pdf_url = storage.get_file_url(pdf_key)
+
+        if not pdf_url:
+            raise HTTPException(status_code=500, detail="Failed to generate PDF URL")
+
+        async with session_pool() as session:
+            # Generate a unique identifier for non-arxiv papers
+            custom_id = f"upload_{uuid.uuid4().hex[:12]}"
+
+            # Create paper record
+            paper = Paper(
+                user_id=user_id,
+                title=title,
+                abstract=abstract,
+                authors=authors,
+                arxiv_id=custom_id,
+                pdf_url=pdf_url,
+                paper_url=None,
+                github_url=github_url,
+                topics=topics,
+                published_date=published_date,
+                institution=institution,
+                date_published=date_published,
+                paper_summary="",
+                paper_source=PaperSourceEnum.USER_UPLOAD.value,
+            )
+            session.add(paper)
+            await session.commit()
+            await session.refresh(paper)
+
+            # Generate thumbnail from uploaded PDF
+            try:
+                thumb_url = await generate_first_page_thumbnail(
+                    pdf_url=pdf_url, user_id=user_id, target_width=400
+                )
+                if thumb_url:
+                    paper.thumbnail_url = thumb_url
+                    await session.commit()
+                    await session.refresh(paper)
+            except Exception as e:
+                # Non-fatal; keep paper even if thumbnail fails
+                logger.warning(
+                    f"Thumbnail generation failed for uploaded paper id={paper.id}: {str(e)}"
+                )
+
+            return PaperResponse(
+                id=paper.id,
+                user_id=paper.user_id,
+                title=paper.title,
+                abstract=paper.abstract,
+                authors=paper.authors,
+                arxiv_id=paper.arxiv_id,
+                pdf_url=paper.pdf_url,
+                paper_url=paper.paper_url,
+                github_url=paper.github_url,
+                topics=paper.topics,
+                published_date=paper.published_date,
+                thumbnail_url=paper.thumbnail_url,
+                institution=paper.institution,
+                date_published=paper.date_published,
+                created_at=paper.created_at,
+                ingested=paper.ingested,
+                paper_summary=paper.paper_summary,
+                paper_source=paper.paper_source,
+            )
+    except HTTPException:
+        raise
+    except DBAPIError as e:
+        logger.exception(f"Database connection error creating uploaded paper: {str(e)}")
+        raise DatabaseConnectionError(str(e))
+    except SQLAlchemyError as e:
+        logger.error(f"Database error creating uploaded paper: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create paper")
+    except Exception as e:
+        logger.error(f"Unexpected error creating uploaded paper: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

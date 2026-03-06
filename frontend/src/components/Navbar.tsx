@@ -20,23 +20,17 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
+import { useUserData } from "@/context/UserDataContext";
 import { useSearch } from "@/context/SearchContext";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { getProfile } from "@/lib/api";
 import { AddPaperDialog } from "@/components/AddPaperDialog";
 
 export function Navbar() {
   const { theme, toggleTheme } = useTheme();
-  const { user, logout, accessToken } = useAuth();
+  const { user, logout } = useAuth();
+  const { profile } = useUserData();
   const { setIsDialogOpen } = useSearch();
   const navigate = useNavigate();
-
-  const { data: profile } = useQuery({
-    queryKey: ["profile"],
-    queryFn: () => getProfile(accessToken),
-    enabled: Boolean(accessToken),
-  });
 
   const initials = user?.full_name
     ? user.full_name
@@ -128,7 +122,7 @@ export function Navbar() {
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/settings")}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>

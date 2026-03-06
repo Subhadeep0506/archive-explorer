@@ -1,25 +1,3 @@
-from dotenv import load_dotenv
-
-load_dotenv()
-from src.core.vectorstore import VectorStoreFactory
-from src.core.embedding import EmbeddingFactory
-from src.lib.langsearch import LangSearchClient
-
-
-async def main():
-    embedding = EmbeddingFactory.build_embedding_model()
-    vectorstore = VectorStoreFactory.build_vector_store(embedding_model=embedding)
-
-    docs = vectorstore.similarity_search(
-        "What is the main contribution of the paper?", k=10
-    )
-    langsearch = await LangSearchClient.rerank_docs(
-        query="What is the main contribution of the paper?", documents=docs, top_n=4
-    )
-    print(langsearch)
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(main())
+print(
+    '{  "domain_applicability": {\n    "Technology": 0.9,\n    "Cloud Computing": 0.85,\n    "Industrial": 0.75,\n    "Healthcare": 0.4,\n    "Finance": 0.65,\n    "Education": 0.3,\n    "Retail": 0.5,\n    "Manufacturing": 0.6,\n    "Energy": 0.45,\n    "Agriculture": 0.2,\n    "Cybersecurity": 0.7,\n    "Database Systems": 0.88,\n    "Software Engineering": 0.7\n  },\n  "impact_score": 0.75,\n  "new_tech_applicability": {\n    "Agentic AI": 0.85,\n    "Federated Learning": 0.6,\n    "Cloud Computing": 0.82,\n    "Cybersecurity": 0.65,\n    "Natural Language Processing": 0.4,\n    "Computer Vision": 0.0,\n    "Reinforcement Learning": 0.3,\n    "VLMs": 0.2,\n    "RAG": 0.5,\n    "Machine Learning": 0.7,\n    "Observability": 0.65\n  },\n  "reproducibility_score": {\n    "Reproducible": 0.5,\n    "Reapplicable": 0.75\n  }\n}'
+)

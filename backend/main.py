@@ -1,6 +1,7 @@
 from typing import Optional
 from dotenv import load_dotenv
 import psutil
+import os
 
 load_dotenv()
 
@@ -14,7 +15,9 @@ from src.database.db import Base, engine
 from src.errors import DatabaseConnectionError
 from src.core.logger import SingletonLogger
 from fastapi.middleware.cors import CORSMiddleware
-
+from src.core.chat_engine.query import ChatEngine
+from src.core.chat_engine.agent_state import AgentState
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from src.router.auth import router as auth_router
 from src.router.profile import router as profile_router
 from src.router.arxiv import router as arxiv_router
@@ -22,6 +25,10 @@ from src.router.paper import router as paper_router
 from src.router.ingestion import router as ingestion_router
 from src.router.summary import router as summary_router
 from src.router.chat import router as chat_router
+from src.router.message import router as message_router
+from src.router.session import router as session_router
+from src.router.admin import router as admin_router
+from src.router.user_settings import router as user_settings_router
 
 from src.model import *
 
@@ -45,18 +52,15 @@ async def lifespan(app: FastAPI):
         raise
 
     try:
+        # Build and compile the graph
+        app.state.graph = await ChatEngine.build_graph()
+        logger.info("Chat engine graph successfully built and initialized.")
         yield
-    finally:
-        logger = getattr(app.state, "logger", SingletonLogger().get_logger())
-        if logger:
-            logger.info("Shutting down application")
-        model = getattr(app.state, "model", None)
-        if model and hasattr(model, "close"):
-            try:
-                model.close()
-            except Exception:
-                if logger:
-                    logger.exception("Error closing model during shutdown")
+        logger.info("Shutting down application")
+
+    except Exception as e:
+        logger.error(f"Error during application startup: {e}")
+        raise
 
 
 app = FastAPI(
@@ -99,6 +103,12 @@ app.include_router(paper_router, prefix="/api/v1/papers", tags=["Papers"])
 app.include_router(ingestion_router, prefix="/api/v1/ingestion", tags=["Ingestion"])
 app.include_router(summary_router, prefix="/api/v1/summary", tags=["Summary"])
 app.include_router(chat_router, prefix="/api/v1/chat", tags=["Chat"])
+app.include_router(message_router, prefix="/api/v1/messages", tags=["Messages"])
+app.include_router(session_router, prefix="/api/v1/sessions", tags=["Sessions"])
+app.include_router(
+    user_settings_router, prefix="/api/v1/settings", tags=["User Settings"]
+)
+app.include_router(admin_router, prefix="/admin", tags=["Admin"])
 
 
 @app.get("/health")

@@ -7,43 +7,59 @@ import Index from "./pages/Index";
 import PaperDetail from "./pages/PaperDetail";
 import ChatScreen from "./pages/ChatScreen";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import SavedPapers from "./pages/SavedPapers";
 import NotFound from "./pages/NotFound";
 import Landing from "./pages/Landing";
 import GoogleCallback from "./pages/GoogleCallback";
 import { AuthProvider } from "@/context/AuthContext";
+import { UserDataProvider } from "@/context/UserDataContext";
 import { SearchProvider } from "@/context/SearchContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { MainLayout } from "@/components/layout/MainLayout";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <SearchProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route
-                path="/auth/google/callback"
-                element={<GoogleCallback />}
-              />
-              <Route element={<ProtectedRoute />}>
-                <Route path="/app" element={<Index />} />
-                <Route path="/saved-papers" element={<SavedPapers />} />
-                <Route path="/paper/:id" element={<PaperDetail />} />
-                <Route path="/paper/:paperId/chat" element={<ChatScreen />} />
-                <Route path="/profile" element={<Profile />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </SearchProvider>
-      </AuthProvider>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthProvider>
+          <UserDataProvider>
+            <SearchProvider>
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Landing />} />
+                  <Route
+                    path="/auth/google/callback"
+                    element={<GoogleCallback />}
+                  />
+                  <Route element={<ProtectedRoute />}>
+                    {/* Pages with persistent navbar */}
+                    <Route element={<MainLayout />}>
+                      <Route path="/app" element={<Index />} />
+                      <Route path="/saved-papers" element={<SavedPapers />} />
+                      <Route path="/paper/:id" element={<PaperDetail />} />
+                      <Route path="/profile" element={<Profile />} />
+                      <Route path="/settings" element={<Settings />} />
+                    </Route>
+                    {/* Chat page without navbar */}
+                    <Route
+                      path="/paper/:paperId/chat"
+                      element={<ChatScreen />}
+                    />
+                  </Route>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </SearchProvider>
+          </UserDataProvider>
+        </AuthProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

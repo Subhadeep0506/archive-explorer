@@ -55,87 +55,102 @@ async def get_summary_and_usability(arxiv_id: str, user_id: int) -> dict:
         raise DatabaseConnectionError("Failed to connect to the database")
 
 
-async def generate_paper_summary(arxiv_id: str) -> str:
-    """Generate a summary for a given paper and update the paper_summary column."""
+async def generate_paper_summary(arxiv_id: str = None, pdf_url: str = None) -> str:
+    """Generate a summary for a given paper and optionally update the paper_summary column."""
     try:
         async with session_pool() as session:
-            result = await session.execute(
-                select(Paper).where(Paper.arxiv_id == arxiv_id)
-            )
-            paper = result.scalar_one_or_none()
-            if not paper:
-                raise HTTPException(status_code=404, detail="Paper not found")
+            paper = None
+
+            if arxiv_id:
+                result = await session.execute(
+                    select(Paper).where(Paper.arxiv_id == arxiv_id)
+                )
+                paper = result.scalar_one_or_none()
+                if not paper:
+                    raise HTTPException(status_code=404, detail="Paper not found")
 
             # Generate the summary
-            summary = await SummaryEngine.generate_paper_summary(arxiv_id)
+            summary = await SummaryEngine.generate_paper_summary(arxiv_id, pdf_url)
 
-            # Update the paper with the generated summary
-            paper.paper_summary = summary
-            await session.commit()
-            await session.refresh(paper)
+            # Only update database if we have a paper record
+            if arxiv_id and paper:
+                paper.paper_summary = summary
+                await session.commit()
+                await session.refresh(paper)
 
             return summary
     except (SQLAlchemyError, DBAPIError) as e:
         logger.error(
-            f"Database error while generating summary for paper {arxiv_id}: {e}"
+            f"Database error while generating summary for paper {arxiv_id or 'PDF URL'}: {e}"
         )
         raise DatabaseConnectionError("Failed to connect to the database")
 
 
-async def generate_paper_usability(arxiv_id: str, user_id: int) -> dict:
+async def generate_paper_usability(
+    user_id: int, arxiv_id: str = None, pdf_url: str = None
+) -> dict:
     """Generate usability metrics for a given paper and store in the usability table."""
     try:
         async with session_pool() as session:
-            # Check if paper exists
-            result = await session.execute(
-                select(Paper).where(Paper.arxiv_id == arxiv_id)
-            )
-            paper = result.scalar_one_or_none()
-            if not paper:
-                raise HTTPException(status_code=404, detail="Paper not found")
+            paper = None
+            existing_usability = None
+
+            if arxiv_id:
+                result = await session.execute(
+                    select(Paper).where(Paper.arxiv_id == arxiv_id)
+                )
+                paper = result.scalar_one_or_none()
+                if not paper:
+                    raise HTTPException(status_code=404, detail="Paper not found")
+
+                # Check if usability record already exists for this user and paper
+                usability_result = await session.execute(
+                    select(Usability).where(
+                        Usability.user_id == user_id, Usability.paper_id == paper.id
+                    )
+                )
+                existing_usability = usability_result.scalar_one_or_none()
 
             # Generate the usability metrics
-            usability_data = await UsabilityEngine.generate_paper_summary(arxiv_id)
-
-            # Check if usability record already exists for this user and paper
-            usability_result = await session.execute(
-                select(Usability).where(
-                    Usability.user_id == user_id, Usability.paper_id == paper.id
-                )
+            usability_data = await UsabilityEngine.generate_paper_summary(
+                arxiv_id, pdf_url
             )
-            existing_usability = usability_result.scalar_one_or_none()
 
-            if existing_usability:
-                # Update existing record
-                existing_usability.domain_applicability = usability_data.get(
-                    "domain_applicability", {}
-                )
-                existing_usability.reproducibility_score = usability_data.get(
-                    "reproducibility_score", 0.0
-                )
-                existing_usability.new_tech_applicability = usability_data.get(
-                    "new_tech_applicability", {}
-                )
-                existing_usability.impact_score = usability_data.get("impact_score")
-                await session.commit()
-                await session.refresh(existing_usability)
-            else:
-                # Create new record
-                new_usability = Usability(
-                    user_id=user_id,
-                    paper_id=paper.id,
-                    domain_applicability=usability_data.get("domain_applicability", {}),
-                    reproducibility_score=usability_data.get(
-                        "reproducibility_score", 0.0
-                    ),
-                    new_tech_applicability=usability_data.get(
+            # Only save to database if we have a paper record (arxiv_id provided)
+            if arxiv_id and paper:
+                if existing_usability:
+                    # Update existing record
+                    existing_usability.domain_applicability = usability_data.get(
+                        "domain_applicability", {}
+                    )
+                    existing_usability.reproducibility_score = usability_data.get(
+                        "reproducibility_score", {}
+                    )
+                    existing_usability.new_tech_applicability = usability_data.get(
                         "new_tech_applicability", {}
-                    ),
-                    impact_score=usability_data.get("impact_score"),
-                )
-                session.add(new_usability)
-                await session.commit()
-                await session.refresh(new_usability)
+                    )
+                    existing_usability.impact_score = usability_data.get("impact_score")
+                    await session.commit()
+                    await session.refresh(existing_usability)
+                else:
+                    # Create new record
+                    new_usability = Usability(
+                        user_id=user_id,
+                        paper_id=paper.id,
+                        domain_applicability=usability_data.get(
+                            "domain_applicability", {}
+                        ),
+                        reproducibility_score=usability_data.get(
+                            "reproducibility_score", {}
+                        ),
+                        new_tech_applicability=usability_data.get(
+                            "new_tech_applicability", {}
+                        ),
+                        impact_score=usability_data.get("impact_score"),
+                    )
+                    session.add(new_usability)
+                    await session.commit()
+                    await session.refresh(new_usability)
 
             return usability_data
     except (SQLAlchemyError, DBAPIError) as e:
