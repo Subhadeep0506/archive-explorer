@@ -21,7 +21,7 @@ class FirecrawlLoader:
         loader = FireCrawlLoader(
             url=url,
             api_key=os.getenv("FIRECRAWL_API_KEY"),
-            mode="scrape",
+            mode="extract",
             params={"formats": ["markdown"]},
         )
         try:
