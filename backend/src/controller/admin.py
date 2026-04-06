@@ -6,7 +6,8 @@ Simple authentication with hardcoded admin:admin credentials.
 from typing import Optional
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.model import User, ServiceCatalog
+from sqlalchemy.orm import selectinload
+from src.model import User, ServiceCatalog, ResourceCatalog
 from src.lib.enum import ServiceType
 
 
@@ -101,4 +102,103 @@ class AdminController:
     async def get_service_count(session: AsyncSession) -> int:
         """Get total service count."""
         result = await session.execute(select(ServiceCatalog))
+        return len(result.scalars().all())
+
+    # ==================== Resource Catalog Methods ====================
+
+    @staticmethod
+    async def get_all_resources(session: AsyncSession) -> list[ResourceCatalog]:
+        """Get all resources from catalog with service information."""
+        result = await session.execute(
+            select(ResourceCatalog)
+            .options(selectinload(ResourceCatalog.service))
+            .order_by(ResourceCatalog.service_id, ResourceCatalog.name)
+        )
+        return result.scalars().all()
+
+    @staticmethod
+    async def get_resources_by_service(
+        session: AsyncSession, service_id: int
+    ) -> list[ResourceCatalog]:
+        """Get all resources for a specific service."""
+        result = await session.execute(
+            select(ResourceCatalog)
+            .where(ResourceCatalog.service_id == service_id)
+            .order_by(ResourceCatalog.name)
+        )
+        return result.scalars().all()
+
+    @staticmethod
+    async def get_resource_by_id(
+        session: AsyncSession, resource_id: int
+    ) -> Optional[ResourceCatalog]:
+        """Get resource by ID."""
+        result = await session.execute(
+            select(ResourceCatalog)
+            .options(selectinload(ResourceCatalog.service))
+            .where(ResourceCatalog.id == resource_id)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_resource_by_slug(
+        session: AsyncSession, slug: str
+    ) -> Optional[ResourceCatalog]:
+        """Get resource by slug."""
+        result = await session.execute(
+            select(ResourceCatalog)
+            .options(selectinload(ResourceCatalog.service))
+            .where(ResourceCatalog.slug == slug)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def create_resource(
+        session: AsyncSession,
+        name: str,
+        slug: str,
+        service_id: int,
+        description: Optional[str] = None,
+        is_active: bool = True,
+    ) -> ResourceCatalog:
+        """Create a new resource in the catalog."""
+        resource = ResourceCatalog(
+            name=name,
+            slug=slug,
+            service_id=service_id,
+            description=description,
+            is_active=is_active,
+        )
+        session.add(resource)
+        await session.commit()
+        await session.refresh(resource)
+        return resource
+
+    @staticmethod
+    async def delete_resource(session: AsyncSession, resource_id: int) -> bool:
+        """Delete a resource from the catalog."""
+        resource = await session.get(ResourceCatalog, resource_id)
+        if resource:
+            await session.delete(resource)
+            await session.commit()
+            return True
+        return False
+
+    @staticmethod
+    async def toggle_resource_status(
+        session: AsyncSession, resource_id: int
+    ) -> Optional[ResourceCatalog]:
+        """Toggle resource active status."""
+        resource = await session.get(ResourceCatalog, resource_id)
+        if resource:
+            resource.is_active = not resource.is_active
+            await session.commit()
+            await session.refresh(resource)
+            return resource
+        return None
+
+    @staticmethod
+    async def get_resource_count(session: AsyncSession) -> int:
+        """Get total resource count."""
+        result = await session.execute(select(ResourceCatalog))
         return len(result.scalars().all())

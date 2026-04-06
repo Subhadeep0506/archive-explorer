@@ -7,22 +7,34 @@ import {
   useState,
 } from "react";
 import { useAuth } from "./AuthContext";
-import { getProfile, getUserSettings, getServiceCatalog } from "@/lib/api";
+import {
+  getProfile,
+  getUserSettings,
+  getServiceCatalog,
+  getResourceCatalog,
+} from "@/lib/api";
 import type { Profile } from "@/types/profile";
-import type { UserSettings, ServiceCatalog } from "@/types/settings";
+import type {
+  UserSettings,
+  ServiceCatalog,
+  ResourceCatalog,
+} from "@/types/settings";
 
 const PROFILE_KEY = "user_profile";
 const SETTINGS_KEY = "user_settings";
 const SERVICES_KEY = "service_catalog";
+const RESOURCES_KEY = "resource_catalog";
 
 interface UserDataContextValue {
   profile: Profile | null;
   settings: UserSettings | null;
   services: ServiceCatalog[] | null;
+  resources: ResourceCatalog[] | null;
   isLoading: boolean;
   refreshProfile: () => Promise<void>;
   refreshSettings: () => Promise<void>;
   refreshServices: () => Promise<void>;
+  refreshResources: () => Promise<void>;
   updateProfileCache: (profile: Profile) => void;
   updateSettingsCache: (settings: UserSettings) => void;
   clearUserData: () => void;
@@ -67,6 +79,9 @@ export const UserDataProvider = ({
   const [services, setServices] = useState<ServiceCatalog[] | null>(() =>
     readStoredJson<ServiceCatalog[]>(SERVICES_KEY),
   );
+  const [resources, setResources] = useState<ResourceCatalog[] | null>(() =>
+    readStoredJson<ResourceCatalog[]>(RESOURCES_KEY),
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   // Clear user data when user logs out
@@ -74,9 +89,11 @@ export const UserDataProvider = ({
     setProfile(null);
     setSettings(null);
     setServices(null);
+    setResources(null);
     storeJson(PROFILE_KEY, null);
     storeJson(SETTINGS_KEY, null);
     storeJson(SERVICES_KEY, null);
+    storeJson(RESOURCES_KEY, null);
   }, []);
 
   // Update profile cache
@@ -129,6 +146,25 @@ export const UserDataProvider = ({
       storeJson(SERVICES_KEY, data);
     } catch (error) {
       console.error("Failed to fetch services:", error);
+      // Set to empty array on error to prevent infinite retries
+      setServices([]);
+      storeJson(SERVICES_KEY, []);
+    }
+  }, [accessToken]);
+
+  // Refresh resources from server
+  const refreshResources = useCallback(async () => {
+    if (!accessToken) return;
+
+    try {
+      const data = await getResourceCatalog(accessToken);
+      setResources(data);
+      storeJson(RESOURCES_KEY, data);
+    } catch (error) {
+      console.error("Failed to fetch resources:", error);
+      // Set to empty array on error to prevent infinite retries
+      setResources([]);
+      storeJson(RESOURCES_KEY, []);
     }
   }, [accessToken]);
 
@@ -142,16 +178,26 @@ export const UserDataProvider = ({
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Only fetch if we don't have cached data
+        // Fetch all data in parallel for better performance
+        const promises = [];
+
         if (!profile) {
-          await refreshProfile();
+          promises.push(refreshProfile());
         }
         if (!settings) {
-          await refreshSettings();
+          promises.push(refreshSettings());
         }
         if (!services) {
-          await refreshServices();
+          promises.push(refreshServices());
         }
+        if (!resources) {
+          promises.push(refreshResources());
+        }
+
+        // Wait for all fetches to complete (or fail)
+        await Promise.allSettled(promises);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
       } finally {
         setIsLoading(false);
       }
@@ -165,10 +211,12 @@ export const UserDataProvider = ({
       profile,
       settings,
       services,
+      resources,
       isLoading,
       refreshProfile,
       refreshSettings,
       refreshServices,
+      refreshResources,
       updateProfileCache,
       updateSettingsCache,
       clearUserData,
@@ -177,10 +225,12 @@ export const UserDataProvider = ({
       profile,
       settings,
       services,
+      resources,
       isLoading,
       refreshProfile,
       refreshSettings,
       refreshServices,
+      refreshResources,
       updateProfileCache,
       updateSettingsCache,
       clearUserData,

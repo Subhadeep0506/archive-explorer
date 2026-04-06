@@ -11,9 +11,10 @@ from src.schema.user_settings import (
     UserSettingsResponse,
     UserSettingsUpdate,
     ServiceCatalogResponse,
+    ResourceCatalogResponse,
 )
 from src.lib.auth import get_current_user
-from src.model import ServiceCatalog
+from src.model import ServiceCatalog, ResourceCatalog
 
 router = APIRouter()
 
@@ -93,3 +94,27 @@ async def get_services(
     )
     services = result.scalars().all()
     return services
+
+
+@router.get("/resources", response_model=list[ResourceCatalogResponse])
+async def get_resources(
+    user_id: int = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get available resources/models from the catalog.
+    Only returns active resources with their associated service information.
+    This is used to display available models in the QnA settings dialog.
+    """
+    from sqlalchemy.orm import selectinload
+
+    result = await session.execute(
+        select(ResourceCatalog)
+        .options(selectinload(ResourceCatalog.service))
+        .where(ResourceCatalog.is_active == True)
+        .order_by(ResourceCatalog.name)
+    )
+    resources = result.scalars().all()
+
+    # Convert to dict to include service information
+    return [resource.to_dict() for resource in resources]

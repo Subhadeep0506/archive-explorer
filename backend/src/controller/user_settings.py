@@ -8,10 +8,40 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.model import UserSettings
 from src.schema.user_settings import UserSettingsUpdate
 from fastapi import HTTPException, status
+from cryptography.fernet import Fernet, InvalidToken
+import os
+
+# Get the same encryption key used by the model
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+if not ENCRYPTION_KEY:
+    raise ValueError("ENCRYPTION_KEY environment variable is not set")
+
+fernet = Fernet(ENCRYPTION_KEY.encode())
 
 
 class UserSettingsController:
     """Controller for user settings operations."""
+
+    @staticmethod
+    def is_api_key_encrypted(api_key: str) -> bool:
+        """
+        Check if an API key is already encrypted (Fernet token) or plaintext.
+
+        Args:
+            api_key: The API key string to check
+
+        Returns:
+            True if encrypted, False if plaintext
+        """
+        if not api_key:
+            return False
+        if len(api_key) < 80:
+            return False
+        try:
+            decrypted = fernet.decrypt(api_key.encode()).decode()
+            return True
+        except (InvalidToken, Exception) as e:
+            return False
 
     @staticmethod
     async def get_user_settings(
@@ -63,7 +93,22 @@ class UserSettingsController:
         )
 
         if api_keys:
-            settings.api_keys = api_keys
+            # Process each key: encrypt only if not already encrypted
+            processed_keys = []
+            for key_item in api_keys:
+                processed_item = key_item.copy()
+                api_key_value = processed_item.get("api_key", "")
+                slug = processed_item.get("slug", "unknown")
+
+                # Only encrypt if the key is plaintext
+                if api_key_value and not UserSettingsController.is_api_key_encrypted(
+                    api_key_value
+                ):
+                    encrypted_value = fernet.encrypt(api_key_value.encode()).decode()
+                    processed_item["api_key"] = encrypted_value
+                processed_keys.append(processed_item)
+
+            settings.api_keys_encrypted = processed_keys
 
         session.add(settings)
         await session.commit()
@@ -116,11 +161,34 @@ class UserSettingsController:
         if "api_keys_encrypted" in update_data:
             api_keys = update_data.pop("api_keys_encrypted")
             if api_keys is not None:
-                # Convert Pydantic models to dicts
-                settings.api_keys = [
-                    item.model_dump() if hasattr(item, "model_dump") else item
-                    for item in api_keys
-                ]
+                # Handle empty array to clear all keys
+                if len(api_keys) == 0:
+                    settings.api_keys_encrypted = []
+                else:
+                    # Process each key: encrypt only if not already encrypted
+                    processed_keys = []
+                    for item in api_keys:
+                        key_dict = (
+                            item.model_dump() if hasattr(item, "model_dump") else item
+                        )
+                        processed_item = key_dict.copy()
+                        api_key_value = processed_item.get("api_key", "")
+                        slug = processed_item.get("slug", "unknown")
+
+                        if (
+                            api_key_value
+                            and not UserSettingsController.is_api_key_encrypted(
+                                api_key_value
+                            )
+                        ):
+                            encrypted_value = fernet.encrypt(
+                                api_key_value.encode()
+                            ).decode()
+                            processed_item["api_key"] = encrypted_value
+
+                        processed_keys.append(processed_item)
+
+                    settings.api_keys_encrypted = processed_keys
 
         # Update other fields
         for field, value in update_data.items():

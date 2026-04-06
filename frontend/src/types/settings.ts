@@ -31,3 +31,16 @@ export interface ServiceCatalog {
     created_at: string;
     updated_at: string;
 }
+
+export interface ResourceCatalog {
+    id: number;
+    name: string;
+    slug: string;
+    service_id: number;
+    service_slug?: string;
+    service_name?: string;
+    description?: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+}

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from ..controller import summary as summary_controller
 from ..schema.summary import (
@@ -27,28 +27,43 @@ async def get_summary_and_usability(
 
 
 @router.post("/{arxiv_id}", response_model=SummaryResponse)
-async def generate_summary(arxiv_id: str, user_id: int = Depends(get_current_user)):
+async def generate_summary(
+    arxiv_id: str,
+    request: Request,
+    user_id: int = Depends(get_current_user),
+):
     """Generate a summary for a specific paper (backward compatibility)."""
-    summary = await summary_controller.generate_paper_summary(arxiv_id=arxiv_id)
+    summary = await summary_controller.generate_paper_summary(
+        user_id=user_id, arxiv_id=arxiv_id, request=request
+    )
     return SummaryResponse(arxiv_id=arxiv_id, summary=summary)
 
 
 @router.post("/generate", response_model=SummaryResponse)
 async def generate_summary_flexible(
-    request: SummaryGenerateRequest, user_id: int = Depends(get_current_user)
+    payload: SummaryGenerateRequest,
+    request: Request,
+    user_id: int = Depends(get_current_user),
 ):
     """Generate a summary for a paper using arxiv_id or pdf_url."""
     summary = await summary_controller.generate_paper_summary(
-        arxiv_id=request.arxiv_id, pdf_url=request.pdf_url
+        user_id=user_id,
+        arxiv_id=payload.arxiv_id,
+        pdf_url=payload.pdf_url,
+        request=request,
     )
-    return SummaryResponse(arxiv_id=request.arxiv_id or "", summary=summary)
+    return SummaryResponse(arxiv_id=payload.arxiv_id or "", summary=summary)
 
 
 @router.post("/{arxiv_id}/usability", response_model=UsabilityResponse)
-async def generate_usability(arxiv_id: str, user_id: int = Depends(get_current_user)):
+async def generate_usability(
+    arxiv_id: str,
+    request: Request,
+    user_id: int = Depends(get_current_user),
+):
     """Generate usability metrics for a specific paper (backward compatibility)."""
     usability_data = await summary_controller.generate_paper_usability(
-        user_id=user_id, arxiv_id=arxiv_id
+        user_id=user_id, arxiv_id=arxiv_id, request=request
     )
     return UsabilityResponse(
         arxiv_id=arxiv_id,
@@ -61,15 +76,20 @@ async def generate_usability(arxiv_id: str, user_id: int = Depends(get_current_u
 
 @router.post("/usability/generate", response_model=UsabilityResponse)
 async def generate_usability_flexible(
-    request: UsabilityGenerateRequest, user_id: int = Depends(get_current_user)
+    payload: UsabilityGenerateRequest,
+    request: Request,
+    user_id: int = Depends(get_current_user),
 ):
     """Generate usability metrics for a paper using arxiv_id or pdf_url."""
     usability_data = await summary_controller.generate_paper_usability(
-        user_id=user_id, arxiv_id=request.arxiv_id, pdf_url=request.pdf_url
+        user_id=user_id,
+        arxiv_id=payload.arxiv_id,
+        pdf_url=payload.pdf_url,
+        request=request,
     )
     return UsabilityResponse(
-        arxiv_id=request.arxiv_id,
-        pdf_url=request.pdf_url,
+        arxiv_id=payload.arxiv_id,
+        pdf_url=payload.pdf_url,
         domain_applicability=usability_data.get("domain_applicability", {}),
         reproducibility_score=usability_data.get("reproducibility_score", {}),
         new_tech_applicability=usability_data.get("new_tech_applicability", {}),

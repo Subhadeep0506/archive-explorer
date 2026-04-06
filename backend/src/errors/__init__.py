@@ -14,6 +14,7 @@ from .profile import (
     ProfileIncompleteError,
 )
 from .database import DatabaseConnectionError
+from .arxiv import ArxivRateLimitError, ArxivAPIError
 
 __all__ = [
     # auth
@@ -31,4 +32,7 @@ __all__ = [
     "ProfileIncompleteError",
     # database
     "DatabaseConnectionError",
+    # arxiv
+    "ArxivRateLimitError",
+    "ArxivAPIError",
 ]

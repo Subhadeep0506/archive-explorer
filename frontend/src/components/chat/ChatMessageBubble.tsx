@@ -10,6 +10,7 @@ import {
   Globe,
   FileText,
   BookOpen,
+  Loader2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -50,8 +51,8 @@ interface ChatMessageBubbleProps {
     total_tokens?: number;
   };
   paperPdfUrl?: string;
-  onLike?: (liked: boolean) => void;
-  onFeedback?: (feedback: string, stars: number) => void;
+  onLike?: (liked: boolean) => Promise<void> | void;
+  onFeedback?: (feedback: string, stars: number) => Promise<void> | void;
 }
 
 export function ChatMessageBubble({
@@ -68,22 +69,49 @@ export function ChatMessageBubble({
   const [sourcesPopoverOpen, setSourcesPopoverOpen] = useState(false);
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
+  const [isLiking, setIsLiking] = useState(false);
+  const [isDisliking, setIsDisliking] = useState(false);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
-  const handleLike = () => {
-    if (onLike) {
-      onLike(message.liked === true ? null : true);
+  // Ensure content is always a string for ReactMarkdown
+  const messageContent =
+    typeof message.content === "string"
+      ? message.content
+      : JSON.stringify(message.content);
+
+  const handleLike = async () => {
+    if (onLike && !isLiking) {
+      setIsLiking(true);
+      try {
+        await onLike(message.liked === true ? null : true);
+      } finally {
+        setIsLiking(false);
+      }
     }
   };
 
-  const handleDislike = () => {
-    if (onLike) {
-      onLike(message.liked === false ? null : false);
+  const handleDislike = async () => {
+    if (onLike && !isDisliking) {
+      setIsDisliking(true);
+      try {
+        await onLike(message.liked === false ? null : false);
+      } finally {
+        setIsDisliking(false);
+      }
     }
   };
 
-  const handleFeedbackSubmit = (feedback: string, stars: number) => {
+  const handleFeedbackSubmit = async (feedback: string, stars: number) => {
     if (onFeedback) {
-      onFeedback(feedback, stars);
+      setIsSubmittingFeedback(true);
+      try {
+        await onFeedback(feedback, stars);
+        setFeedbackDialogOpen(false);
+      } catch (error) {
+        // Keep dialog open on error
+      } finally {
+        setIsSubmittingFeedback(false);
+      }
     }
   };
 
@@ -124,7 +152,6 @@ export function ChatMessageBubble({
           isUser ? "bg-muted/50" : "",
         )}
       >
-
         <div className="flex-1 min-w-0">
           <div className="prose prose-sm dark:prose-invert max-w-none">
             <ReactMarkdown
@@ -196,7 +223,7 @@ export function ChatMessageBubble({
                 ),
               }}
             >
-              {message.content}
+              {messageContent}
             </ReactMarkdown>
             {isStreaming && (
               <span className="inline-block w-2 h-4 ml-0.5 bg-current animate-pulse" />
@@ -372,9 +399,14 @@ export function ChatMessageBubble({
                 message.liked === true && "text-primary bg-primary/10",
               )}
               onClick={handleLike}
+              disabled={isLiking || isDisliking}
               title="Like this response"
             >
-              <ThumbsUp className="w-3.5 h-3.5" />
+              {isLiking ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <ThumbsUp className="w-3.5 h-3.5" />
+              )}
             </Button>
             <Button
               variant="ghost"
@@ -384,9 +416,14 @@ export function ChatMessageBubble({
                 message.liked === false && "text-destructive bg-destructive/10",
               )}
               onClick={handleDislike}
+              disabled={isLiking || isDisliking}
               title="Dislike this response"
             >
-              <ThumbsDown className="w-3.5 h-3.5" />
+              {isDisliking ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <ThumbsDown className="w-3.5 h-3.5" />
+              )}
             </Button>
             <Button
               variant="ghost"
@@ -412,6 +449,7 @@ export function ChatMessageBubble({
         onSubmit={handleFeedbackSubmit}
         currentFeedback={message.feedback || ""}
         currentStars={message.stars || 0}
+        isSubmitting={isSubmittingFeedback}
       />
 
       {/* PDF Preview Dialog */}

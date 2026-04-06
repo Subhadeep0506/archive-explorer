@@ -1,11 +1,16 @@
 import os
 
 from langchain_pinecone import PineconeVectorStore
+from ..core.logger import SingletonLogger
+
+logger = SingletonLogger().get_logger()
 
 
 class VectorStoreFactory:
     @staticmethod
-    def build_vector_store(embedding_model, index_name="arxiv-app") -> PineconeVectorStore:
+    def build_vector_store(
+        embedding_model, index_name="arxiv-app"
+    ) -> PineconeVectorStore:
         """Builds and returns the vector store."""
         try:
             vector_store = PineconeVectorStore(
@@ -17,5 +22,5 @@ class VectorStoreFactory:
             )
             return vector_store
         except Exception as e:
-            print(f"Error building vector store: {e}")
+            logger.error(f"Error building vector store: {e}")
             raise e

@@ -4,6 +4,9 @@ from langchain_pinecone import PineconeVectorStore
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_pymupdf4llm import PyMuPDF4LLMLoader
 from typing import List
+from ...core.logger import SingletonLogger
+
+logger = SingletonLogger().get_logger()
 
 class IngestionEngine:
     @staticmethod
@@ -27,7 +30,7 @@ class IngestionEngine:
             documents = text_splitter.split_documents(documents)
             _ = await vector_store.aadd_documents(documents)
         except Exception as e:
-            print(f"Error ingesting paper: {e}")
+            logger.error(f"Error ingesting paper: {e}")
             raise e
 
     @staticmethod
@@ -40,5 +43,5 @@ class IngestionEngine:
             )
             await vector_store.adelete(filter={"paper_id": {"$in": paper_ids}})
         except Exception as e:
-            print(f"Error deleting paper: {e}")
+            logger.error(f"Error deleting paper: {e}")
             raise e

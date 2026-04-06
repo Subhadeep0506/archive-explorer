@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Globe } from "lucide-react";
+import { Globe, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ChatConfigPopover, ChatConfig } from "./ChatConfigPopover";
 import { cn } from "@/lib/utils";
+import { Badge } from "../ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -31,7 +34,7 @@ export function ChatInput({
     if (textarea) {
       // Reset height to auto to get the correct scrollHeight
       textarea.style.height = "auto";
-      const newHeight = Math.min(Math.max(textarea.scrollHeight,60), 200);
+      const newHeight = Math.min(Math.max(textarea.scrollHeight, 60), 200);
       textarea.style.height = `${newHeight}px`;
 
       // Enable scrolling when max height is reached
@@ -87,26 +90,37 @@ export function ChatInput({
 
           {/* Bottom controls below textarea */}
           <div className="flex items-center justify-between pointer-events-none z-10 mt-2">
-            <div className="flex items-center gap-1 pointer-events-auto">
+            <div className="flex items-center gap-2 pointer-events-auto">
               <ChatConfigPopover
                 config={config}
                 onConfigChange={onConfigChange}
               />
-              <Button
-                type="button"
-                variant={useWebSearch ? "default" : "ghost"}
-                size="sm"
-                className={cn(
-                  "h-8 w-8 p-0",
-                  useWebSearch &&
-                    "bg-primary text-primary-foreground hover:bg-primary/90",
-                )}
-                onClick={onWebSearchToggle}
-                disabled={disabled}
-                title="Toggle web search"
-              >
-                <Globe className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Switch
+                  id="web-search"
+                  checked={useWebSearch}
+                  onCheckedChange={onWebSearchToggle}
+                  disabled={disabled}
+                  className="scale-90 data-[state=checked]:bg-green-600 data-[state=checked]:hover:bg-green-700"
+                />
+                <Label htmlFor="web-search" className="cursor-pointer">
+                  <Badge
+                    variant={useWebSearch ? "default" : "secondary"}
+                    className={cn(
+                      "px-[0.25rem] text-xs cursor-pointer",
+                      useWebSearch && "bg-green-600 hover:bg-green-700",
+                    )}
+                  >
+                    <Globe className="h-4 w-4 mr-1" />{" "}
+                    {useWebSearch ? "Web Search On" : "Web Search Off"}
+                  </Badge>
+                </Label>
+              </div>
+              <Badge variant="default" className="text-xs">
+                {config.modelProvider && config.modelSlug
+                  ? `${config.modelProvider} · ${config.modelSlug}`
+                  : config.model}
+              </Badge>
             </div>
 
             <Button

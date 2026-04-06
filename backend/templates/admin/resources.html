@@ -1,0 +1,297 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Resources Management{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <!-- Navigation -->
+    <nav class="glass-nav sticky top-0 z-50 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">Arxiver Admin</h1>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <a href="/admin/dashboard" class="px-4 py-2 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all">
+                        Dashboard
+                    </a>
+                    <a href="/admin/users" class="px-4 py-2 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all">
+                        Users
+                    </a>
+                    <a href="/admin/services" class="px-4 py-2 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all">
+                        Services
+                    </a>
+                    <a href="/admin/resources" class="px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-500 dark:to-blue-600 text-white shadow-md hover:shadow-lg transform hover:scale-105 transition-all">
+                        Resources
+                    </a>
+                    <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all ml-2">
+                        <svg class="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path class="dark:hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                            <path class="hidden dark:block" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                    </button>
+                    <a href="/admin/logout" class="px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg transform hover:scale-105 transition-all ml-2">
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Success/Error Messages -->
+        {% if request.query_params.get('success') == 'added' %}
+        <div class="mb-6 glass-card border-green-500/30 text-green-700 dark:text-green-400 px-4 py-3 rounded-xl shadow-lg">
+            ✓ Resource added successfully!
+        </div>
+        {% elif request.query_params.get('success') == 'deleted' %}
+        <div class="mb-6 glass-card border-green-500/30 text-green-700 dark:text-green-400 px-4 py-3 rounded-xl shadow-lg">
+           ✓ Resource deleted successfully!
+        </div>
+        {% elif request.query_params.get('success') == 'toggled' %}
+        <div class="mb-6 glass-card border-green-500/30 text-green-700 dark:text-green-400 px-4 py-3 rounded-xl shadow-lg">
+            ✓ Resource status updated!
+        </div>
+        {% elif request.query_params.get('error') %}
+        <div class="mb-6 glass-card border-red-500/30 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl shadow-lg">
+            ✗ Error: {{ request.query_params.get('error') }}
+        </div>
+        {% endif %}
+
+        <!-- Add Resource Form -->
+        <div class="glass-card shadow-xl rounded-2xl p-6 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center space-x-2">
+                <span class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                </span>
+                <span>Add New Resource</span>
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Format: <code class="glass-card px-2 py-1 rounded font-mono text-blue-600 dark:text-blue-400">service_slug/resource_slug</code> (e.g., groq/llama-3.3-70b-versatile)
+            </p>
+            <form method="POST" action="/admin/resources/add" class="space-y-4" id="resourceForm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Service <span class="text-red-500 dark:text-red-400">*</span>
+                        </label>
+                        <select 
+                            name="service_id" 
+                            id="serviceSelect"
+                            required
+                            class="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-white transition"
+                        >
+                            <option value="">Select a service...</option>
+                            {% for service in services %}
+                            <option value="{{ service.id }}" data-slug="{{ service.slug }}">
+                                {{ service.name }} ({{ service.slug }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The service this resource belongs to</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Resource Slug <span class="text-red-500 dark:text-red-400">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            name="slug" 
+                            id="resourceSlug"
+                            required
+                            placeholder="llama-3.3-70b-versatile"
+                            class="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition font-mono"
+                        >
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">URL-friendly identifier (e.g., llama-3.3-70b-versatile)</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Resource Name <span class="text-red-500 dark:text-red-400">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="name" 
+                        id="resourceName"
+                        required
+                        placeholder="Auto-generated from slug"
+                        readonly
+                        class="w-full px-4 py-2.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white"
+                    >
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Full resource identifier (auto-generated):
+                        <span id="fullSlugPreview" class="font-mono font-semibold text-blue-600 dark:text-blue-400">service/resource</span>
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Description</label>
+                    <textarea 
+                        name="description" 
+                        rows="2"
+                        placeholder="Optional description of this resource (e.g., model capabilities, limitations)"
+                        class="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition"
+                    ></textarea>
+                </div>
+
+                <div class="flex justify-end">
+                    <button 
+                        type="submit"
+                        class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700 text-white font-semibold py-2.5 px-6 rounded-xl transition shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                    >
+                        Add Resource
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Resources List -->
+        <div class="glass-card shadow-xl rounded-2xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-white/50 to-gray-50/50 dark:from-gray-800/50 dark:to-gray-900/50">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">All Resources ({{ resources|length }})</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50/50 dark:bg-gray-800/50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Service</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Full Slug</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for resource in resources %}
+                        <tr class="hover:bg-white/30 dark:hover:bg-gray-800/30 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
+                                {{ resource.id }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ resource.service.name }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ resource.service.slug }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
+                                {{ resource.name }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="text-sm text-blue-600 dark:text-blue-400 font-mono bg-blue-50 dark:bg-blue-900/20 rounded px-2 py-1 inline-block">
+                                    {{ resource.service.slug }}/{{ resource.slug }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate">
+                                {{ resource.description or '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full {% if resource.is_active %}bg-gradient-to-r from-green-500 to-emerald-500 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300{% endif %} shadow-sm">
+                                    {% if resource.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                <form method="POST" action="/admin/resources/toggle/{{ resource.id }}" class="inline">
+                                    <button 
+                                        type="submit"
+                                        class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold transition"
+                                        onclick="return confirm('Toggle resource status?')"
+                                    >
+                                        Toggle
+                                    </button>
+                                </form>
+                                <form method="POST" action="/admin/resources/delete/{{ resource.id }}" class="inline">
+                                    <button 
+                                        type="submit"
+                                        class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-semibold transition"
+                                        onclick="return confirm('Are you sure you want to delete this resource?')"
+                                    >
+                                        Delete
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Name generation function from slug
+function generateNameFromSlug(slug) {
+    // Remove service prefix if present (anything before /)
+    if (slug.includes('/')) {
+        slug = slug.split('/').pop();
+    }
+    
+    // Remove suffix after colon (e.g., :free)
+    if (slug.includes(':')) {
+        slug = slug.split(':')[0];
+    }
+    
+    // Replace hyphens and underscores with spaces
+    let name = slug.replace(/-/g, ' ').replace(/_/g, ' ');
+    
+    // Split into words
+    const words = name.split(/\s+/);
+    
+    // Capitalize each word with special handling
+    const capitalized = words.map(word => {
+        // Check if word ends with 'b' and is preceded by numbers (e.g., "70b" -> "70B")
+        if (/^\d+b$/i.test(word)) {
+            return word.toUpperCase();
+        }
+        // Check if word is short and alphanumeric (likely acronym)
+        if (word.length <= 4 && /^[a-z0-9.]+$/i.test(word)) {
+            return word.toUpperCase();
+        }
+        // Regular word capitalization
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    });
+    
+    return capitalized.join(' ');
+}
+
+// Auto-generate name when resource slug changes
+document.getElementById('resourceSlug').addEventListener('input', function(e) {
+    const slug = e.target.value;
+    const name = generateNameFromSlug(slug);
+    document.getElementById('resourceName').value = name;
+    updateFullSlugPreview();
+});
+
+// Update preview when service changes
+document.getElementById('serviceSelect').addEventListener('change', function(e) {
+    updateFullSlugPreview();
+});
+
+function updateFullSlugPreview() {
+    const serviceSelect = document.getElementById('serviceSelect');
+    const resourceSlug = document.getElementById('resourceSlug').value;
+    const preview = document.getElementById('fullSlugPreview');
+    
+    const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+    const serviceSlug = selectedOption.getAttribute('data-slug');
+    
+    if (serviceSlug && resourceSlug) {
+        preview.textContent = serviceSlug + '/' + resourceSlug;
+        preview.classList.remove('text-gray-400', 'dark:text-gray-500');
+        preview.classList.add('text-blue-600', 'dark:text-blue-400');
+    } else {
+        preview.textContent = 'service/resource';
+        preview.classList.remove('text-blue-600', 'dark:text-blue-400');
+        preview.classList.add('text-gray-400', 'dark:text-gray-500');
+    }
+}
+</script>
+{% endblock %}

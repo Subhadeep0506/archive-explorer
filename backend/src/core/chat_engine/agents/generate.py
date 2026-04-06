@@ -2,9 +2,11 @@ from ..agent_state import AgentState
 from ....core.logger import SingletonLogger
 from ....core.llm import LLMFactory
 from langgraph.config import get_stream_writer
+from langchain_core.runnables import RunnableConfig
+from ....config.prompts import CHAT_RESPONSE_GENERATION_SYSTEM_PROMPT
 
 
-async def generate_response_node(state: AgentState):
+async def generate_response_node(state: AgentState, config: RunnableConfig):
     """Generates a response based on the provided state."""
     logger = SingletonLogger().get_logger()
     stream_writer = get_stream_writer()
@@ -13,6 +15,8 @@ async def generate_response_node(state: AgentState):
             model_name=state["model_name"],
             temperature=state["temperature"],
             max_tokens=state["max_tokens"],
+            request=state.get("request"),
+            streaming=True,
         )
         docs_context = "\n\n".join(
             [
@@ -26,45 +30,29 @@ async def generate_response_node(state: AgentState):
                 for i, doc in enumerate(state.get("web_search_results", []))
             ]
         )
-        system_prompt = """You are an assistant for helping researchers understand scientific papers. You will be provided with a question, a list of retrieved documents relevant to that question, and the results of a web crawl on the topic. Your task is to synthesize this information and generate a concise, informative response that directly answers the question. Use the previous conversation history, retrieved documents and web crawl results as evidence to support your answer, and make sure to cite specific documents or web sources when relevant.
-        
-        Retrieved documents:
-        {retrieved_docs}
-        
-        Web crawl results:
-        {web_search_results}
-        
-        Conversation history:
-        """
         stream_writer(
             {
                 "type": "Generate Response",
                 "message": "Generating response based on retrieved documents and web search results...",
             }
         )
-        # Extract and flatten messages from MessageResponse objects or plain dicts
         messages = state.get("messages", [])
         flattened_messages = []
         for msg in messages:
-            # If it's a MessageResponse object, extract the content field
             if hasattr(msg, "content"):
                 content = msg.content
             else:
                 content = msg
 
-            # Content can be a single dict or list of dicts
             if isinstance(content, list):
                 flattened_messages.extend(content)
             elif isinstance(content, dict):
                 flattened_messages.append(content)
-
-        # Take the last 10 messages for context (5 user-assistant pairs)
         recent_messages = flattened_messages[-10:]
-
         new_messages = [
             {
                 "role": "system",
-                "content": system_prompt.format(
+                "content": CHAT_RESPONSE_GENERATION_SYSTEM_PROMPT.format(
                     retrieved_docs=docs_context, web_search_results=web_context
                 ),
             },
@@ -75,12 +63,17 @@ async def generate_response_node(state: AgentState):
             },
         ]
 
-        response = await llm.ainvoke(new_messages)
+        # Pass config to ainvoke() to enable streaming in async context
+        response = await llm.ainvoke(new_messages, config=config)
         stream_writer(
             {"type": "Generate Response", "message": "Response generation complete."}
         )
         return {
-            "response": response.content,
+            "response": (
+                response.content
+                if isinstance(response.content, str)
+                else str(response.text)
+            ),
             "messages": [{"role": "assistant", "content": response.content}],
             "response_metadata": {
                 "completion_tokens": response.usage_metadata.get("output_tokens", 0),

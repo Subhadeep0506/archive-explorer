@@ -1,9 +1,11 @@
 import asyncio
 import os
-from typing import List, Dict
+from typing import List, Dict, Optional
+from fastapi import Request
 
 from langchain_tavily import TavilySearch
 from ..core.logger import SingletonLogger
+from ..utils.api_key_utils import get_api_key_for_service
 
 
 class TavilyWebSearch:
@@ -11,9 +13,21 @@ class TavilyWebSearch:
 
     @staticmethod
     async def search(
-        query: str, num: int = 10, topic: str = "general"
+        query: str,
+        num: int = 10,
+        topic: str = "general",
+        api_key: Optional[str] = None,
+        request: Optional[Request] = None,
     ) -> List[Dict[str, str]]:
-        tavily_api_key = os.getenv("TAVILY_SEARCH_API_KEY")
+        if not api_key and request:
+            api_key = get_api_key_for_service(
+                request, "tavily", "TAVILY_SEARCH_API_KEY"
+            )
+
+        if not api_key:
+            api_key = os.getenv("TAVILY_SEARCH_API_KEY")
+
+        tavily_api_key = api_key
         logger = SingletonLogger().get_logger()
 
         def _call():

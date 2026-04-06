@@ -1,4 +1,4 @@
-from typing import List, TypedDict, Dict
+from typing import List, TypedDict, Dict, Optional, Any
 from langchain_core.documents import Document
 
 
@@ -23,3 +23,4 @@ class AgentState(TypedDict):
     web_search_results: List[Document]
     response: str
     response_metadata: Dict
+    request: Optional[Any] = None  # FastAPI Request object for API keys

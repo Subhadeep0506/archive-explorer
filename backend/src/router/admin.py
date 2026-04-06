@@ -104,6 +104,7 @@ async def admin_dashboard(
     # Get statistics
     user_count = await AdminController.get_user_count(session)
     service_count = await AdminController.get_service_count(session)
+    resource_count = await AdminController.get_resource_count(session)
     users = await AdminController.get_all_users(session)
 
     return templates.TemplateResponse(
@@ -112,6 +113,7 @@ async def admin_dashboard(
             "request": request,
             "user_count": user_count,
             "service_count": service_count,
+            "resource_count": resource_count,
             "users": users[:10],  # Show last 10 users
         },
     )
@@ -193,6 +195,88 @@ async def admin_toggle_service(
         return RedirectResponse(url="/admin/services?success=toggled", status_code=303)
     else:
         return RedirectResponse(url="/admin/services?error=not_found", status_code=303)
+
+
+# ==================== Resource Routes ====================
+
+
+@router.get("/resources", response_class=HTMLResponse)
+async def admin_resources(
+    request: Request, session: AsyncSession = Depends(get_session)
+):
+    """Render resources management page."""
+    require_admin_auth(request)
+
+    resources = await AdminController.get_all_resources(session)
+    services = await AdminController.get_all_services(session)
+
+    return templates.TemplateResponse(
+        "admin/resources.html",
+        {
+            "request": request,
+            "resources": resources,
+            "services": services,
+        },
+    )
+
+
+@router.post("/resources/add")
+async def admin_add_resource(
+    request: Request,
+    name: str = Form(...),
+    slug: str = Form(...),
+    service_id: int = Form(...),
+    description: Optional[str] = Form(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Add a new resource."""
+    require_admin_auth(request)
+
+    try:
+        await AdminController.create_resource(
+            session=session,
+            name=name,
+            slug=slug,
+            service_id=service_id,
+            description=description,
+        )
+
+        return RedirectResponse(url="/admin/resources?success=added", status_code=303)
+    except Exception as e:
+        return RedirectResponse(url=f"/admin/resources?error={str(e)}", status_code=303)
+
+
+@router.post("/resources/delete/{resource_id}")
+async def admin_delete_resource(
+    request: Request, resource_id: int, session: AsyncSession = Depends(get_session)
+):
+    """Delete a resource."""
+    require_admin_auth(request)
+
+    success = await AdminController.delete_resource(session, resource_id)
+
+    if success:
+        return RedirectResponse(url="/admin/resources?success=deleted", status_code=303)
+    else:
+        return RedirectResponse(url="/admin/resources?error=not_found", status_code=303)
+
+
+@router.post("/resources/toggle/{resource_id}")
+async def admin_toggle_resource(
+    request: Request, resource_id: int, session: AsyncSession = Depends(get_session)
+):
+    """Toggle resource active status."""
+    require_admin_auth(request)
+
+    resource = await AdminController.toggle_resource_status(session, resource_id)
+
+    if resource:
+        return RedirectResponse(url="/admin/resources?success=toggled", status_code=303)
+    else:
+        return RedirectResponse(url="/admin/resources?error=not_found", status_code=303)
+
+
+# ==================== User Routes ====================
 
 
 @router.get("/users", response_class=HTMLResponse)

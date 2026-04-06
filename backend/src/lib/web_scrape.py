@@ -1,9 +1,12 @@
 import os
 import asyncio
-from typing import List
+from typing import List, Optional
+from fastapi import Request
 
 from langchain_core.documents import Document
-from langchain_community.document_loaders.firecrawl import FireCrawlLoader
+from langchain_community.document_loaders.firecrawl import (
+    FireCrawlLoader as BasFireCrawlLoader,
+)
 from firecrawl.v2.utils.error_handler import (
     WebsiteNotSupportedError,
     PaymentRequiredError,
@@ -11,16 +14,17 @@ from firecrawl.v2.utils.error_handler import (
     UnauthorizedError,
 )
 from ..core.logger import SingletonLogger
+from ..utils.api_key_utils import get_api_key_for_service
 
 
 class FirecrawlLoader:
 
     @staticmethod
-    async def _load_single(url: str) -> List[Document]:
+    async def _load_single(url: str, api_key: str) -> List[Document]:
         logger = SingletonLogger().get_logger()
-        loader = FireCrawlLoader(
+        loader = BasFireCrawlLoader(
             url=url,
-            api_key=os.getenv("FIRECRAWL_API_KEY"),
+            api_key=api_key,
             mode="extract",
             params={"formats": ["markdown"]},
         )
@@ -48,14 +52,26 @@ class FirecrawlLoader:
             return []
 
     @staticmethod
-    async def scrape(urls: List[str]) -> List[Document]:
+    async def scrape(
+        urls: List[str],
+        api_key: Optional[str] = None,
+        request: Optional[Request] = None,
+    ) -> List[Document]:
         logger = SingletonLogger().get_logger()
         try:
+            if not api_key and request:
+                api_key = get_api_key_for_service(
+                    request, "firecrawl", "FIRECRAWL_API_KEY"
+                )
+
+            if not api_key:
+                api_key = os.getenv("FIRECRAWL_API_KEY")
+
             if not urls:
                 return []
             if isinstance(urls, str):
                 urls = [urls]
-            tasks = [FirecrawlLoader._load_single(url) for url in urls]
+            tasks = [FirecrawlLoader._load_single(url, api_key) for url in urls]
             results = await asyncio.gather(*tasks)
             documents: List[Document] = []
             for res in results:

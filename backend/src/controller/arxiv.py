@@ -8,6 +8,7 @@ from ..lib.arxiv import (
 )
 from ..schema.arxiv import ArxivEntry, ThumbnailResponse
 from ..core.logger import SingletonLogger
+from ..errors import ArxivRateLimitError, ArxivAPIError
 
 
 logger = SingletonLogger().get_logger()
@@ -56,6 +57,20 @@ async def search_arxiv(
             sort_order=sort_order,
         )
         return [ArxivEntry.model_validate(r) for r in results]
+    except ArxivRateLimitError as e:
+        logger.warning(f"Arxiv rate limit hit: {str(e)}")
+        headers = {"Retry-After": str(e.retry_after)} if e.retry_after else {}
+        raise HTTPException(
+            status_code=429,
+            detail=e.message,
+            headers=headers,
+        )
+    except ArxivAPIError as e:
+        logger.error(f"Arxiv API error: {str(e)}")
+        raise HTTPException(
+            status_code=e.status_code or 502,
+            detail=e.message,
+        )
     except Exception as e:
         logger.error(f"Arxiv search failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to search arXiv")
@@ -144,6 +159,20 @@ async def feed_topics(
                     asyncio.create_task(_warm_thumbnails(missing, user_id))
 
         return entries
+    except ArxivRateLimitError as e:
+        logger.warning(f"Arxiv rate limit hit: {str(e)}")
+        headers = {"Retry-After": str(e.retry_after)} if e.retry_after else {}
+        raise HTTPException(
+            status_code=429,
+            detail=e.message,
+            headers=headers,
+        )
+    except ArxivAPIError as e:
+        logger.error(f"Arxiv API error: {str(e)}")
+        raise HTTPException(
+            status_code=e.status_code or 502,
+            detail=e.message,
+        )
     except Exception as e:
         logger.error(f"Arxiv topic feed failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch arXiv feed")
@@ -232,6 +261,20 @@ async def feed_topic_string(
                     asyncio.create_task(_warm_thumbnails(missing, user_id))
 
         return entries
+    except ArxivRateLimitError as e:
+        logger.warning(f"Arxiv rate limit hit: {str(e)}")
+        headers = {"Retry-After": str(e.retry_after)} if e.retry_after else {}
+        raise HTTPException(
+            status_code=429,
+            detail=e.message,
+            headers=headers,
+        )
+    except ArxivAPIError as e:
+        logger.error(f"Arxiv API error: {str(e)}")
+        raise HTTPException(
+            status_code=e.status_code or 502,
+            detail=e.message,
+        )
     except Exception as e:
         logger.error(f"Arxiv topic-string feed failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch arXiv feed")

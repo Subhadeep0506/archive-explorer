@@ -15,9 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { useUserData } from "@/context/UserDataContext";
+import { useMemo, useEffect, useRef } from "react";
 
 export interface ChatConfig {
   model: string;
+  modelSlug?: string;
+  modelProvider?: string;
   temperature: number;
   maxTokens: number;
   topK: number;
@@ -28,27 +32,78 @@ interface ChatConfigPopoverProps {
   onConfigChange: (config: ChatConfig) => void;
 }
 
-const AVAILABLE_MODELS = [
-  { value: "qwen/qwen3-32b", label: "Qwen 3 32B" },
-  { value: "openai/gpt-oss-120b", label: "GPT OSS 120B" },
-  { value: "openai/gpt-oss-20b", label: "GPT OSS 20B" },
-  { value: "groq/compound", label: "Groq Compound" },
-  { value: "groq/compound-mini", label: "Groq Compound Mini" },
-  {
-    value: "meta-llama/llama-4-scout-17b-16e-instruct",
-    label: "Llama 4 Scout 17B",
-  },
-  { value: "moonshotai/kimi-k2-instruct-0905", label: "Kimi K2 Instruct" },
-  { value: "llama-3.1-8b-instant", label: "Llama 3.1 8B Instant" },
-  { value: "llama-3.3-70b-versatile", label: "Llama 3.3 70B Versatile" },
-];
-
 export function ChatConfigPopover({
   config,
   onConfigChange,
 }: ChatConfigPopoverProps) {
+  const { resources, settings } = useUserData();
+  const hasSetDefaultModel = useRef(false);
+
+  // Get user's API key service slugs
+  const userApiKeyServices = useMemo(() => {
+    if (!settings?.api_keys_encrypted) return new Set<string>();
+    return new Set(settings.api_keys_encrypted.map((key) => key.slug));
+  }, [settings]);
+
+  // Convert resources to model options format, filtering by available API keys
+  const availableModels = useMemo(() => {
+    if (!resources || resources.length === 0) {
+      // If no resources loaded, return empty array
+      return [];
+    }
+
+    // Filter resources to only include those with matching API keys
+    const filteredResources = resources.filter((resource) => {
+      // If resource has a service_slug, check if user has API key for that service
+      if (resource.service_slug) {
+        return userApiKeyServices.has(resource.service_slug);
+      }
+      // If no service_slug, include it (for backward compatibility)
+      return true;
+    });
+
+    return filteredResources.map((resource) => ({
+      value: resource.service_slug
+        ? `${resource.service_slug}/${resource.slug}`
+        : resource.slug,
+      label: resource.name,
+      provider: resource.service_name || "Unknown",
+      slug: resource.slug,
+    }));
+  }, [resources, userApiKeyServices]);
+
+  // Auto-select first model from available models when they load (only once)
+  useEffect(() => {
+    if (availableModels.length > 0 && !hasSetDefaultModel.current) {
+      // Check if current model exists in the available models
+      const currentModelExists = availableModels.some(
+        (model) => model.value === config.model,
+      );
+
+      // If current model doesn't exist, select the first one
+      if (!currentModelExists) {
+        hasSetDefaultModel.current = true;
+        const firstModel = availableModels[0];
+        onConfigChange({
+          ...config,
+          model: firstModel.value,
+          modelSlug: firstModel.slug,
+          modelProvider: firstModel.provider,
+        });
+      }
+    }
+  }, [availableModels, config, onConfigChange]);
+
   const handleModelChange = (value: string) => {
-    onConfigChange({ ...config, model: value });
+    const selectedModel = availableModels.find(
+      (model) => model.value === value,
+    );
+    onConfigChange({
+      ...config,
+      model: value,
+      modelSlug: selectedModel?.slug,
+      modelProvider: selectedModel?.provider,
+    });
   };
 
   const handleTemperatureChange = (value: number[]) => {
@@ -79,7 +134,7 @@ export function ChatConfigPopover({
           <Settings className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80" align="start" side="top">
+      <PopoverContent className="w-80" align="start" side="bottom">
         <div className="space-y-4">
           <div className="space-y-2">
             <h4 className="font-medium text-sm">Response Configuration</h4>
@@ -94,18 +149,57 @@ export function ChatConfigPopover({
               <Label htmlFor="model" className="text-xs">
                 Model
               </Label>
-              <Select value={config.model} onValueChange={handleModelChange}>
-                <SelectTrigger id="model">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {AVAILABLE_MODELS.map((model) => (
-                    <SelectItem key={model.value} value={model.value}>
-                      {model.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {availableModels.length === 0 ? (
+                <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                  No models available. Please add API keys in Settings.
+                </div>
+              ) : (
+                <Select value={config.model} onValueChange={handleModelChange}>
+                  <SelectTrigger id="model" className="h-auto">
+                    <SelectValue>
+                      {(() => {
+                        const selected = availableModels.find(
+                          (m) => m.value === config.model,
+                        );
+                        if (!selected) return "Select a model";
+                        return (
+                          <div className="flex flex-col items-start py-[0.1rem]">
+                            <span className="font-medium">
+                              {selected.label}
+                            </span>
+                            <span className="text-[1.6vh] text-muted-foreground text-left block">
+                              {selected.provider} · {selected.slug}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent
+                    position="popper"
+                    side="right"
+                    align="start"
+                    sideOffset={5}
+                    avoidCollisions={false}
+                    className="max-h-[300px]"
+                  >
+                    {availableModels.map((model) => (
+                      <SelectItem
+                        key={model.value}
+                        value={model.value}
+                        className="h-auto py-2"
+                      >
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">{model.label}</span>
+                          <span className="text-[1.6vh] text-muted-foreground text-left block">
+                            {model.provider} · {model.slug}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* Temperature */}

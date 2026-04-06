@@ -79,6 +79,7 @@ export interface ChatQueryRequest {
   top_k?: number;
   use_web_search?: boolean;
   web_search_topic?: string;
+  api_keys_encrypted?: import('./settings').ApiKeyItem[];
 }
 
 // UI types (for backward compatibility with existing components)
@@ -130,3 +131,27 @@ export interface StreamingState {
     total_tokens?: number;
   };
 }
+
+// Backend streaming message formats
+export interface StreamingCustomMessage {
+  type: 'custom';
+  data: {
+    type: string;
+    message: string;
+  };
+}
+
+export interface StreamingUpdatesMessage {
+  type: 'updates';
+  data: Record<string, unknown>;
+}
+
+export interface StreamingTokenMessage {
+  type: 'token';
+  content: string;
+}
+
+export type StreamingMessage =
+  | StreamingCustomMessage
+  | StreamingUpdatesMessage
+  | StreamingTokenMessage;

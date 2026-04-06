@@ -9,6 +9,7 @@ import asyncio
 import fitz  # PyMuPDF
 from ..core.storage.supabase import SupabaseStorage
 from ..core.logger import SingletonLogger
+from ..errors import ArxivRateLimitError, ArxivAPIError
 
 storage = SupabaseStorage.from_env()
 
@@ -52,8 +53,28 @@ class ArxivClient:
         try:
             resp = self.session.get(self.BASE_URL, params=params, timeout=30)
             resp.raise_for_status()
-        except requests.RequestException:
-            return []
+        except requests.RequestException as e:
+            # Check for rate limit (429) specifically
+            if hasattr(e, "response") and e.response is not None:
+                if e.response.status_code == 429:
+                    retry_after = e.response.headers.get("Retry-After")
+                    retry_seconds = (
+                        int(retry_after)
+                        if retry_after and retry_after.isdigit()
+                        else None
+                    )
+                    raise ArxivRateLimitError(
+                        message="arXiv API rate limit exceeded. Please wait a moment and try again.",
+                        retry_after=retry_seconds,
+                    )
+                else:
+                    # Other HTTP errors
+                    raise ArxivAPIError(
+                        message=f"arXiv API error: {str(e)}",
+                        status_code=e.response.status_code,
+                    )
+            # Network or other request errors
+            raise ArxivAPIError(message=f"Failed to connect to arXiv API: {str(e)}")
 
         return self._parse_response(resp.text)
 

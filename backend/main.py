@@ -15,6 +15,7 @@ from src.database.db import Base, engine
 from src.errors import DatabaseConnectionError
 from src.core.logger import SingletonLogger
 from fastapi.middleware.cors import CORSMiddleware
+from src.lib.api_key_middleware import APIKeyDecryptionMiddleware
 from src.core.chat_engine.query import ChatEngine
 from src.core.chat_engine.agent_state import AgentState
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -69,6 +70,7 @@ app = FastAPI(
     version="0.0.1",
     lifespan=lifespan,
 )
+security_scheme = HTTPBearer()
 
 app.add_middleware(
     CORSMiddleware,
@@ -78,7 +80,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-security_scheme = HTTPBearer()
+app.add_middleware(APIKeyDecryptionMiddleware)
 app.openapi_components = {
     "securitySchemes": {
         "BearerAuth": {

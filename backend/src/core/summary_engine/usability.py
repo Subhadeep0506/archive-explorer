@@ -1,16 +1,18 @@
 import tiktoken
+from typing import Optional
+from fastapi import Request
 
-from ..vectorstore import VectorStoreFactory
-from ..embedding import EmbeddingFactory
-from ..llm import LLMFactory
-from ...core.logger import SingletonLogger
 from langchain.agents import create_agent
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, List
 from langchain_core.documents import Document
+from ..vectorstore import VectorStoreFactory
+from ..embedding import EmbeddingFactory
+from ..llm import LLMFactory
+from ...core.logger import SingletonLogger
 from ...lib.enum import DomainEnum, EmergingTechEnum, ReproducibilityEnum
+from ...config.prompts import USABILITY_GENERATION_SYSTEM_PROMPT
 from .pdf_parser import load_pdf_content
-from ast import literal_eval
 
 logger = SingletonLogger().get_logger()
 
@@ -37,33 +39,19 @@ class UsabilitySchema(BaseModel):
     )
 
 
-SYSTEM_PROMPT = """You are an expert in analyzing scientific papers. Given the content of a paper, you will evaluate its applicability across various domains, assess its reproducibility based on code/data/methods availability, and identify its relevance to emerging technologies.
-
-IMPORTANT: Use ONLY these exact keys (case-sensitive):
-
-domain_applicability - Use ONLY these business/industry domains:
-Marketing, Finance, Legal, Insurance, Technology, Industrial, Healthcare, Education, Automobile, Agriculture, Telecommunications, Manufacturing, Media
-
-reproducibility_score - Use ONLY these two keys:
-Reproducible, Reapplicable
-
-new_tech_applicability - Use ONLY these emerging technology areas:
-Machine Learning, Deep Learning, Computer Vision, Natural Language Processing, LLMs, VLMs, RAG, Agentic AI, Multimodal AI, Cloud Computing, Observability, Cybersecurity, Reinforcement Learning, Robotics
-
-Provide scores (0.0-1.0) for ALL items in each category. Scores must be dense and varied based on the content (e.g., 0.43, 0.67, 0.82), not just 0.9 or 0.1. Use 0.0 for non-applicable items. Be detailed in your analysis and provide nuanced scores that reflect the paper's strengths and weaknesses across different areas.
-"""
-
-
 class UsabilityEngine:
     """UsabilityEngine class for generating summaries of papers."""
 
     @staticmethod
-    async def generate_paper_summary(arxiv_id: str = None, pdf_url: str = None) -> dict:
+    async def generate_paper_summary(
+        arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None
+    ) -> dict:
         """Generate a summary of the paper's usability, applicability, and reproducibility based on its content.
 
         Args:
             arxiv_id (str, optional): arXiv ID of the paper. Defaults to None.
             pdf_url (str, optional): URL of the PDF. Defaults to None.
+            request (Request, optional): FastAPI Request object to fetch API keys. Defaults to None.
 
         Raises:
             NotImplementedError: If PDF URL processing is not implemented.
@@ -78,10 +66,15 @@ class UsabilityEngine:
                 embedding_model=embedding
             )
             llm = LLMFactory.build_llm(
-                model_name="qwen/qwen3-32b", max_tokens=4096, reasoning="hidden"
+                model_name="groq/qwen3-32b",
+                max_tokens=4096,
+                reasoning="hidden",
+                request=request,
             )
             agent = create_agent(
-                system_prompt=SYSTEM_PROMPT, model=llm, response_format=UsabilitySchema
+                system_prompt=USABILITY_GENERATION_SYSTEM_PROMPT,
+                model=llm,
+                response_format=UsabilitySchema,
             )
             if arxiv_id:
                 retriever = vector_store.as_retriever(

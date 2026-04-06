@@ -6,6 +6,7 @@ export const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)
 export const ACCESS_TOKEN_KEY = "arxiver.access_token";
 export const REFRESH_TOKEN_KEY = "arxiver.refresh_token";
 export const USER_KEY = "arxiver.user";
+const SETTINGS_KEY = "user_settings";
 
 type ApiPrimitive = string | number | boolean | undefined | null;
 type ApiParam = ApiPrimitive | ApiPrimitive[];
@@ -17,6 +18,7 @@ export interface ApiRequestOptions {
     params?: Record<string, ApiParam>;
     token?: string | null;
     auth?: boolean;
+    includeApiKeys?: boolean; // New option to include user API keys in request
 }
 
 const buildUrl = (path: string, params?: Record<string, ApiParam>) => {
@@ -43,17 +45,47 @@ const buildUrl = (path: string, params?: Record<string, ApiParam>) => {
     return url;
 };
 
+/**
+ * Get user's encrypted API keys from localStorage
+ */
+const getUserApiKeys = (): import("@/types/settings").ApiKeyItem[] | null => {
+    try {
+        if (typeof window === "undefined") return null;
+        const settingsStr = window.localStorage.getItem(SETTINGS_KEY);
+        if (!settingsStr) return null;
+        const settings = JSON.parse(settingsStr) as import("@/types/settings").UserSettings;
+        return settings.api_keys_encrypted || null;
+    } catch (error) {
+        console.error("Failed to get user API keys:", error);
+        return null;
+    }
+};
+
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-    const { method = "GET", body, headers, params, token, auth = true } = options;
+    const { method = "GET", body, headers, params, token, auth = true, includeApiKeys = false } = options;
     const url = buildUrl(path, params);
     const finalHeaders = new Headers(headers ?? {});
     let payload: BodyInit | undefined;
 
-    if (body instanceof FormData) {
-        payload = body;
-    } else if (body !== undefined && body !== null) {
+    // Prepare the request body
+    let requestBody = body;
+
+    // If includeApiKeys is true, merge api_keys_encrypted into the body
+    if (includeApiKeys && requestBody && typeof requestBody === 'object' && !(requestBody instanceof FormData)) {
+        const apiKeys = getUserApiKeys();
+        if (apiKeys && apiKeys.length > 0) {
+            requestBody = {
+                ...requestBody,
+                api_keys_encrypted: apiKeys,
+            };
+        }
+    }
+
+    if (requestBody instanceof FormData) {
+        payload = requestBody;
+    } else if (requestBody !== undefined && requestBody !== null) {
         finalHeaders.set("Content-Type", "application/json");
-        payload = JSON.stringify(body);
+        payload = JSON.stringify(requestBody);
     }
 
     const resolvedToken = auth
@@ -150,6 +182,13 @@ export async function getServiceCatalog(
     token?: string | null
 ): Promise<import("@/types/settings").ServiceCatalog[]> {
     return apiRequest("/settings/services", { token });
+}
+
+// Resource Catalog API functions
+export async function getResourceCatalog(
+    token?: string | null
+): Promise<import("@/types/settings").ResourceCatalog[]> {
+    return apiRequest("/settings/resources", { token });
 }
 
 // Paper API functions
@@ -288,7 +327,11 @@ export async function generateSummary(
     arxivId: string,
     token?: string | null
 ): Promise<import("@/types/summary").GenerateSummaryResponse> {
-    return apiRequest(`/summary/${arxivId}`, { method: "POST", token });
+    return apiRequest(`/summary/${arxivId}`, {
+        method: "POST",
+        token,
+        includeApiKeys: true
+    });
 }
 
 export async function generateSummaryFlexible(
@@ -298,7 +341,8 @@ export async function generateSummaryFlexible(
     return apiRequest("/summary/generate", {
         method: "POST",
         body: request,
-        token
+        token,
+        includeApiKeys: true
     });
 }
 
@@ -306,7 +350,11 @@ export async function generateUsability(
     arxivId: string,
     token?: string | null
 ): Promise<import("@/types/summary").GenerateUsabilityResponse> {
-    return apiRequest(`/summary/${arxivId}/usability`, { method: "POST", token });
+    return apiRequest(`/summary/${arxivId}/usability`, {
+        method: "POST",
+        token,
+        includeApiKeys: true
+    });
 }
 
 export async function generateUsabilityFlexible(
@@ -316,7 +364,8 @@ export async function generateUsabilityFlexible(
     return apiRequest("/summary/usability/generate", {
         method: "POST",
         body: request,
-        token
+        token,
+        includeApiKeys: true
     });
 }
 
@@ -400,10 +449,17 @@ export async function queryChatStream(
         finalHeaders.set("Authorization", `Bearer ${resolvedToken}`);
     }
 
+    // Include user's API keys in the request
+    const apiKeys = getUserApiKeys();
+    const requestData = {
+        ...data,
+        ...(apiKeys && apiKeys.length > 0 && { api_keys_encrypted: apiKeys })
+    };
+
     const response = await fetch(url, {
         method: "POST",
         headers: finalHeaders,
-        body: JSON.stringify(data),
+        body: JSON.stringify(requestData),
     });
 
     if (!response.ok) {

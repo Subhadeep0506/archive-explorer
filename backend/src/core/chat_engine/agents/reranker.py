@@ -19,6 +19,7 @@ async def rerank_docs_node(state: AgentState):
             query=state["query"],
             documents=state["retrieved_docs"],
             top_n=state["top_k"],
+            request=state.get("request"),
         )
         stream_writer(
             {

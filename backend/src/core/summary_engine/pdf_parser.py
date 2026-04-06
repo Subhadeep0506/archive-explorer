@@ -1,4 +1,7 @@
 from langchain_pymupdf4llm import PyMuPDF4LLMLoader
+from ..logger import SingletonLogger
+
+logger = SingletonLogger().get_logger()
 
 
 async def load_pdf_content(pdf_url: str) -> str:
@@ -10,5 +13,5 @@ async def load_pdf_content(pdf_url: str) -> str:
             content += doc.page_content + "\n\n"
         return content
     except Exception as e:
-        print(f"Error loading PDF content: {e}")
+        logger.error(f"Error loading PDF content: {e}")
         raise e

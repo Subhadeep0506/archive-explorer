@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError, DBAPIError
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
+from typing import Optional
 
 from ..database.db import session_pool
 from ..errors import DatabaseConnectionError
@@ -55,9 +56,15 @@ async def get_summary_and_usability(arxiv_id: str, user_id: int) -> dict:
         raise DatabaseConnectionError("Failed to connect to the database")
 
 
-async def generate_paper_summary(arxiv_id: str = None, pdf_url: str = None) -> str:
+async def generate_paper_summary(
+    user_id: int,
+    arxiv_id: str = None,
+    pdf_url: str = None,
+    request: Optional[Request] = None,
+) -> str:
     """Generate a summary for a given paper and optionally update the paper_summary column."""
     try:
+        # API keys are already loaded by load_user_api_keys dependency
         async with session_pool() as session:
             paper = None
 
@@ -70,7 +77,9 @@ async def generate_paper_summary(arxiv_id: str = None, pdf_url: str = None) -> s
                     raise HTTPException(status_code=404, detail="Paper not found")
 
             # Generate the summary
-            summary = await SummaryEngine.generate_paper_summary(arxiv_id, pdf_url)
+            summary = await SummaryEngine.generate_paper_summary(
+                arxiv_id, pdf_url, request
+            )
 
             # Only update database if we have a paper record
             if arxiv_id and paper:
@@ -87,10 +96,14 @@ async def generate_paper_summary(arxiv_id: str = None, pdf_url: str = None) -> s
 
 
 async def generate_paper_usability(
-    user_id: int, arxiv_id: str = None, pdf_url: str = None
+    user_id: int,
+    arxiv_id: str = None,
+    pdf_url: str = None,
+    request: Optional[Request] = None,
 ) -> dict:
     """Generate usability metrics for a given paper and store in the usability table."""
     try:
+        # API keys are already loaded by load_user_api_keys dependency
         async with session_pool() as session:
             paper = None
             existing_usability = None
@@ -113,7 +126,7 @@ async def generate_paper_usability(
 
             # Generate the usability metrics
             usability_data = await UsabilityEngine.generate_paper_summary(
-                arxiv_id, pdf_url
+                arxiv_id, pdf_url, request
             )
 
             # Only save to database if we have a paper record (arxiv_id provided)

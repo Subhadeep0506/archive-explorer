@@ -53,6 +53,15 @@ function convertMessageToChatMessage(msg: Message): ChatMessage[] {
     | null
     | undefined;
 
+  // Helper to ensure content is a string
+  const ensureString = (content: unknown): string => {
+    if (typeof content === "string") return content;
+    if (typeof content === "object" && content !== null) {
+      return JSON.stringify(content);
+    }
+    return String(content);
+  };
+
   // Handle both single content object and array of content
   if (Array.isArray(msg.content)) {
     // When content is an array (user-assistant pair from chat query)
@@ -60,7 +69,7 @@ function convertMessageToChatMessage(msg: Message): ChatMessage[] {
       messages.push({
         id: `${msg.id}-${index}`,
         role: item.role as "user" | "assistant",
-        content: item.content,
+        content: ensureString(item.content),
         timestamp: msg.created_at,
         liked: msg.liked ?? undefined,
         feedback: msg.feedback ?? undefined,
@@ -74,7 +83,7 @@ function convertMessageToChatMessage(msg: Message): ChatMessage[] {
     messages.push({
       id: String(msg.id),
       role: msg.content.role as "user" | "assistant",
-      content: msg.content.content,
+      content: ensureString(msg.content.content),
       timestamp: msg.created_at,
       liked: msg.liked ?? undefined,
       feedback: msg.feedback ?? undefined,
@@ -291,13 +300,30 @@ export default function ChatScreen() {
     finalResponse: "",
   });
 
-  // State for chat configuration
-  const [chatConfig, setChatConfig] = useState<ChatConfig>({
-    model: "qwen/qwen3-32b",
-    temperature: 0.7,
-    maxTokens: 2048,
-    topK: 5,
+  // State for chat configuration with localStorage persistence
+  const [chatConfig, setChatConfig] = useState<ChatConfig>(() => {
+    try {
+      const stored = localStorage.getItem("chat_config");
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error("Failed to load chat config:", error);
+    }
+    return {
+      model: "qwen/qwen3-32b",
+      modelSlug: "qwen/qwen3-32b",
+      modelProvider: "N/A",
+      temperature: 0.7,
+      maxTokens: 2048,
+      topK: 5,
+    };
   });
+
+  // Persist chat config to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("chat_config", JSON.stringify(chatConfig));
+  }, [chatConfig]);
 
   const [useWebSearch, setUseWebSearch] = useState(false);
 
@@ -417,15 +443,31 @@ export default function ChatScreen() {
 
             const parsed = JSON.parse(jsonStr);
 
-            // Parse the streaming format: ["type", {...payload}]
-            if (!Array.isArray(parsed) || parsed.length !== 2) {
+            // New format: {"type": "...", "data": {...}} or {"type": "token", "content": "..."}
+            if (typeof parsed !== "object" || !parsed.type) {
               return;
             }
 
-            const [messageType, payload] = parsed;
+            const messageType = parsed.type;
+
+            // Handle "token" type messages (streaming response tokens)
+            if (messageType === "token" && parsed.content) {
+              finalResponse += parsed.content;
+              setStreamingMessage(finalResponse);
+              setStreamingState((prev) => ({
+                ...prev,
+                finalResponse,
+              }));
+              return;
+            }
 
             // Handle "custom" type messages (progress updates)
-            if (messageType === "custom" && payload.type && payload.message) {
+            if (
+              messageType === "custom" &&
+              parsed.data?.type &&
+              parsed.data?.message
+            ) {
+              const payload = parsed.data;
               setStreamingState((prev) => {
                 const existingNode = prev.nodes.find(
                   (n) => n.nodeName === payload.type,
@@ -446,7 +488,7 @@ export default function ChatScreen() {
                     ),
                   };
                 } else {
-                  // Create new node
+                  // Create new node and mark previous custom nodes without endTime as complete
                   const now = Date.now();
                   const newNode: StreamingNodeUpdate = {
                     id: `${payload.type}-${now}`,
@@ -457,16 +499,25 @@ export default function ChatScreen() {
                     startTime: now,
                     messages: [payload.message],
                   };
+
+                  // Mark previous custom nodes as complete
+                  const updatedNodes = prev.nodes.map((n) =>
+                    n.type === "custom" && !n.endTime
+                      ? { ...n, endTime: now }
+                      : n,
+                  );
+
                   return {
                     ...prev,
-                    nodes: [...prev.nodes, newNode],
+                    nodes: [...updatedNodes, newNode],
                   };
                 }
               });
             }
 
             // Handle "updates" type messages (node results)
-            if (messageType === "updates") {
+            if (messageType === "updates" && parsed.data) {
+              const payload = parsed.data;
               const nodeKey = Object.keys(payload)[0]; // e.g., "context_retriever_node"
               const nodeData = payload[nodeKey];
 
@@ -517,17 +568,28 @@ export default function ChatScreen() {
                     messages: [],
                     data: nodeData,
                   };
+
+                  // Mark previous custom nodes as complete when adding updates node
+                  const updatedNodes = prev.nodes.map((n) =>
+                    n.type === "custom" && !n.endTime
+                      ? { ...n, endTime: now }
+                      : n,
+                  );
+
                   return {
                     ...prev,
-                    nodes: [...prev.nodes, newNode],
+                    nodes: [...updatedNodes, newNode],
                   };
                 }
               });
 
-              // Extract final response if present
+              // Extract final response if present (only if we haven't received tokens)
               if (nodeKey === "generate_response_node" && nodeData.response) {
-                finalResponse = nodeData.response;
-                setStreamingMessage(finalResponse);
+                // Only set finalResponse if we haven't been accumulating tokens
+                if (!finalResponse) {
+                  finalResponse = nodeData.response;
+                  setStreamingMessage(finalResponse);
+                }
                 setStreamingState((prev) => ({
                   ...prev,
                   finalResponse: nodeData.response,
@@ -536,16 +598,10 @@ export default function ChatScreen() {
               }
             }
 
-            // Handle error responses (could be in different formats)
-            if (
-              (Array.isArray(parsed) && parsed[0] === "error") ||
-              (typeof parsed === "object" &&
-                !Array.isArray(parsed) &&
-                "error" in parsed)
-            ) {
-              const errorMsg = Array.isArray(parsed)
-                ? parsed[1]?.message || "Unknown error"
-                : (parsed as { error: string }).error;
+            // Handle error responses
+            if (parsed.type === "error" || parsed.error) {
+              const errorMsg =
+                parsed.message || parsed.error || "Unknown error";
               throw new Error(errorMsg);
             }
           } catch (e) {

@@ -390,13 +390,14 @@ export function StreamingUpdate({
               {node.displayName}
             </div>
           )}
-          {node.messages.length > 0 && status !== "pending" && (
-            <div className="mt-1 text-xs text-muted-foreground">
-              {node.messages.map((m, i) => (
-                <div key={i}>{m}</div>
-              ))}
-            </div>
-          )}
+          {node.messages.length > 0 &&
+            (status !== "pending" || node.type === "custom") && (
+              <div className="mt-1 text-xs text-muted-foreground">
+                {node.messages.map((m, i) => (
+                  <div key={i}>{m}</div>
+                ))}
+              </div>
+            )}
 
           {status === "done" && timeTaken && (
             <span className="mt-1 inline-block font-mono text-[10px] text-muted-foreground">

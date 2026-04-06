@@ -116,7 +116,7 @@ export default function Settings() {
   const handleSave = () => {
     const dataToSave: UserSettingsUpdate = {
       ...formData,
-      api_keys_encrypted: apiKeys.length > 0 ? apiKeys : undefined,
+      api_keys_encrypted: apiKeys, // Send empty array to clear keys, not undefined
     };
 
     updateMutation.mutate(dataToSave);

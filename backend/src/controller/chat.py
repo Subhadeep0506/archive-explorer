@@ -35,6 +35,8 @@ async def query_paper(user_id: int, payload: ChatQueryRequest, request: Request)
             f"User {user_id} querying paper {payload.paper_id} "
             f"in session {payload.session_id}: {payload.query}"
         )
+
+        # API keys are decrypted by APIKeyDecryptionMiddleware and stored in request.state
         graph = request.app.state.graph
 
         async def stream_and_save():
@@ -56,6 +58,7 @@ async def query_paper(user_id: int, payload: ChatQueryRequest, request: Request)
                     top_k=payload.top_k,
                     use_web_search=payload.use_web_search,
                     web_search_topic=payload.web_search_topic,
+                    request=request,
                 )
 
                 async for chunk in response_stream:
@@ -67,17 +70,24 @@ async def query_paper(user_id: int, payload: ChatQueryRequest, request: Request)
                             if data_str:
                                 data = json.loads(data_str)
 
-                                if isinstance(data, list) and len(data) == 2:
-                                    message_type, stream_payload = data
+                                # Handle v2 streaming format
+                                if isinstance(data, dict):
+                                    stream_type = data.get("type")
+                                    stream_data = data.get("data")
 
-                                    if message_type == "updates" and isinstance(
-                                        stream_payload, dict
+                                    # LLM token streaming (new)
+                                    if stream_type == "token":
+                                        # Tokens are already streamed to client
+                                        # Accumulate for final response if needed
+                                        pass
+
+                                    # State updates from nodes
+                                    elif stream_type == "updates" and isinstance(
+                                        stream_data, dict
                                     ):
                                         # Extract retrieved docs from rerank node
-                                        if "rerank_docs_node" in stream_payload:
-                                            node_data = stream_payload[
-                                                "rerank_docs_node"
-                                            ]
+                                        if "rerank_docs_node" in stream_data:
+                                            node_data = stream_data["rerank_docs_node"]
                                             if "retrieved_docs" in node_data:
                                                 # Convert dict back to Document objects
                                                 retrieved_docs = [
@@ -96,8 +106,8 @@ async def query_paper(user_id: int, payload: ChatQueryRequest, request: Request)
                                                 ]
 
                                         # Extract web search results from web crawl node
-                                        if "web_crawl_node" in stream_payload:
-                                            node_data = stream_payload["web_crawl_node"]
+                                        if "web_crawl_node" in stream_data:
+                                            node_data = stream_data["web_crawl_node"]
                                             if "web_search_results" in node_data:
                                                 # Convert dict back to Document objects
                                                 web_search_results = [
@@ -116,8 +126,8 @@ async def query_paper(user_id: int, payload: ChatQueryRequest, request: Request)
                                                 ]
 
                                         # Extract final response
-                                        if "generate_response_node" in stream_payload:
-                                            node_data = stream_payload[
+                                        if "generate_response_node" in stream_data:
+                                            node_data = stream_data[
                                                 "generate_response_node"
                                             ]
                                             if "response" in node_data:
@@ -126,6 +136,12 @@ async def query_paper(user_id: int, payload: ChatQueryRequest, request: Request)
                                                 response_metadata = node_data[
                                                     "response_metadata"
                                                 ]
+
+                                    # Custom status messages
+                                    elif stream_type == "custom":
+                                        # Custom events are already streamed to client
+                                        pass
+
                     except (json.JSONDecodeError, KeyError) as e:
                         logger.debug(
                             f"Could not parse chunk for response extraction: {e}"

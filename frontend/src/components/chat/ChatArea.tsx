@@ -23,12 +23,15 @@ interface ChatAreaProps {
   paperPdfUrl?: string;
   isStreaming?: boolean;
   streamingState?: StreamingState;
-  onMessageLike?: (messageId: string, liked: boolean | null) => void;
+  onMessageLike?: (
+    messageId: string,
+    liked: boolean | null,
+  ) => Promise<void> | void;
   onMessageFeedback?: (
     messageId: string,
     feedback: string,
     stars: number,
-  ) => void;
+  ) => Promise<void> | void;
 }
 
 export function ChatArea({
@@ -180,7 +183,10 @@ export function ChatArea({
             message={{
               id: "final-response",
               role: "assistant",
-              content: streamingState.finalResponse,
+              content:
+                typeof streamingState.finalResponse === "string"
+                  ? streamingState.finalResponse
+                  : JSON.stringify(streamingState.finalResponse),
               timestamp: new Date().toISOString(),
             }}
             isStreaming={false}

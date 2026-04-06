@@ -1,9 +1,11 @@
 import os
 import requests
 import json
-from typing import Dict
+from typing import Dict, Optional
+from fastapi import Request
 from langchain_core.documents import Document
 from ..core.logger import SingletonLogger
+from ..utils.api_key_utils import get_api_key_for_service
 
 RERANK_BASE_URL = "https://api.langsearch.com/v1/rerank"
 SEARCH_BASE_URL = "https://api.langsearch.com/v1/web-search"
@@ -13,7 +15,11 @@ logger = SingletonLogger().get_logger()
 class LangSearchClient:
     @staticmethod
     async def rerank_docs(
-        query: str, documents: list[Document], top_n: int = 5
+        query: str,
+        documents: list[Document],
+        top_n: int = 5,
+        api_key: Optional[str] = None,
+        request: Optional[Request] = None,
     ) -> list[Document]:
         # Validate inputs
         if not documents:
@@ -41,6 +47,14 @@ class LangSearchClient:
             logger.warning("All documents have empty content")
             return [], []
 
+        if not api_key and request:
+            api_key = get_api_key_for_service(
+                request, "langsearch", "LANGSEARCH_API_KEY"
+            )
+
+        if not api_key:
+            api_key = os.getenv("LANGSEARCH_API_KEY")
+
         payload = json.dumps(
             {
                 "model": "langsearch-reranker-v1",
@@ -51,7 +65,7 @@ class LangSearchClient:
             }
         )
         headers = {
-            "Authorization": f'Bearer {os.getenv("LANGSEARCH_API_KEY")}',
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
 

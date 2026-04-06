@@ -31,7 +31,7 @@ async def context_retriever_node(state: AgentState):
                 "message": "Retrieving relevant documents for the query...",
             }
         )
-        embedding = EmbeddingFactory.build_embedding_model()
+        embedding = EmbeddingFactory.build_embedding_model(request=state.get("request"))
         vector_store = VectorStoreFactory.build_vector_store(embedding_model=embedding)
         retriever = vector_store.as_retriever(
             search_kwargs={

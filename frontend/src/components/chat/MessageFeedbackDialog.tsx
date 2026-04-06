@@ -10,15 +10,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Star } from "lucide-react";
+import { Star, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MessageFeedbackDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (feedback: string, stars: number) => void;
+  onSubmit: (feedback: string, stars: number) => Promise<void> | void;
   currentFeedback?: string;
   currentStars?: number;
+  isSubmitting?: boolean;
 }
 
 export function MessageFeedbackDialog({
@@ -27,23 +28,32 @@ export function MessageFeedbackDialog({
   onSubmit,
   currentFeedback = "",
   currentStars = 0,
+  isSubmitting = false,
 }: MessageFeedbackDialogProps) {
   const [feedback, setFeedback] = useState(currentFeedback);
   const [stars, setStars] = useState(currentStars);
   const [hoveredStar, setHoveredStar] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = () => {
-    onSubmit(feedback, stars);
-    onOpenChange(false);
+  const handleSubmit = async () => {
+    setIsLoading(true);
+    try {
+      await onSubmit(feedback, stars);
+      // Dialog will be closed by parent if successful
+    } catch (error) {
+      // Keep dialog open on error
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
+    if (!newOpen && !isLoading) {
       // Reset to current values when closing
       setFeedback(currentFeedback);
       setStars(currentStars);
+      onOpenChange(newOpen);
     }
-    onOpenChange(newOpen);
   };
 
   return (
@@ -100,11 +110,22 @@ export function MessageFeedbackDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={isLoading}
+          >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={stars === 0}>
-            Submit Feedback
+          <Button onClick={handleSubmit} disabled={stars === 0 || isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              "Submit Feedback"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

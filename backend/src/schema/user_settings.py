@@ -32,6 +32,24 @@ class ServiceCatalogResponse(BaseModel):
         from_attributes = True
 
 
+class ResourceCatalogResponse(BaseModel):
+    """Schema for resource catalog response."""
+
+    id: int
+    name: str
+    slug: str
+    service_id: int
+    service_slug: Optional[str] = None
+    service_name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class UserSettingsBase(BaseModel):
     """Base schema for user settings."""
 

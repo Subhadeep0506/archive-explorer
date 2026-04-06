@@ -1,5 +1,6 @@
 from pydantic import BaseModel, field_validator
 from typing import Dict, Optional
+from .user_settings import ApiKeyItem
 
 
 class SummaryResponse(BaseModel):
@@ -10,11 +11,11 @@ class SummaryResponse(BaseModel):
 class SummaryGenerateRequest(BaseModel):
     arxiv_id: Optional[str] = None
     pdf_url: Optional[str] = None
+    api_keys_encrypted: Optional[list[ApiKeyItem]] = None
 
     @field_validator("arxiv_id", "pdf_url")
     @classmethod
     def check_at_least_one(cls, v, info):
-        # After all fields are validated, check if at least one is provided
         return v
 
     def model_post_init(self, __context) -> None:
@@ -25,6 +26,7 @@ class SummaryGenerateRequest(BaseModel):
 class UsabilityGenerateRequest(BaseModel):
     arxiv_id: Optional[str] = None
     pdf_url: Optional[str] = None
+    api_keys_encrypted: Optional[list[ApiKeyItem]] = None
 
     @field_validator("arxiv_id", "pdf_url")
     @classmethod

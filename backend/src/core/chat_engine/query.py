@@ -88,6 +88,7 @@ class ChatEngine:
         top_k: int = 5,
         use_web_search: bool = False,
         web_search_topic: str = "general",
+        request=None,
     ):
         logger = SingletonLogger().get_logger()
         try:
@@ -111,15 +112,77 @@ class ChatEngine:
                     "web_search_results": [],
                     "response": "",
                     "response_metadata": {},
+                    "request": request,
                 },
-                stream_mode=["updates", "custom"],
+                stream_mode=["updates", "custom", "messages"],
+                version="v2",
             )
-            async for update in response:
+            async for chunk in response:
                 try:
-                    json_str = json.dumps(update, default=json_serializer)
-                    yield f"data: {json_str}\n\n"
+                    # Handle both v2 dict format and v1 tuple format
+                    if isinstance(chunk, dict):
+                        # v2 format: {"type": "...", "ns": (), "data": ...}
+                        chunk_type = chunk.get("type")
+                        chunk_data = chunk.get("data")
+
+                        if chunk_type == "messages":
+                            # Messages stream: (message_chunk, metadata)
+                            msg, metadata = chunk_data
+                            if hasattr(msg, "content") and msg.content:
+                                # Extract text from content (may be string or list of dicts)
+                                text_content = ""
+                                if isinstance(msg.content, str):
+                                    text_content = msg.content
+                                elif isinstance(msg.content, list):
+                                    # Extract text from list of content blocks
+                                    for block in msg.content:
+                                        if (
+                                            isinstance(block, dict)
+                                            and block.get("type") == "text"
+                                        ):
+                                            text_content += block.get("text", "")
+
+                                if text_content:
+                                    # Stream LLM tokens
+                                    yield f"data: {json.dumps({'type': 'token', 'content': text_content})}\n\n"
+                        elif chunk_type == "updates":
+                            # State updates from nodes
+                            yield f"data: {json.dumps({'type': 'updates', 'data': chunk_data}, default=json_serializer)}\n\n"
+                        elif chunk_type == "custom":
+                            # Custom events (status messages)
+                            yield f"data: {json.dumps({'type': 'custom', 'data': chunk_data})}\n\n"
+
+                    elif isinstance(chunk, tuple) and len(chunk) >= 2:
+                        # v1 format: (mode, data) tuples
+                        mode, data = chunk[0], chunk[1]
+
+                        if mode == "messages":
+                            # Messages: (message_chunk, metadata)
+                            msg, metadata = data
+                            if hasattr(msg, "content") and msg.content:
+                                # Extract text from content (may be string or list of dicts)
+                                text_content = ""
+                                if isinstance(msg.content, str):
+                                    text_content = msg.content
+                                elif isinstance(msg.content, list):
+                                    # Extract text from list of content blocks
+                                    for block in msg.content:
+                                        if (
+                                            isinstance(block, dict)
+                                            and block.get("type") == "text"
+                                        ):
+                                            text_content += block.get("text", "")
+
+                                if text_content:
+                                    yield f"data: {json.dumps({'type': 'token', 'content': text_content})}\n\n"
+                        elif mode == "updates":
+                            yield f"data: {json.dumps({'type': 'updates', 'data': data}, default=json_serializer)}\n\n"
+                        elif mode == "custom":
+                            yield f"data: {json.dumps({'type': 'custom', 'data': data})}\n\n"
+
                 except Exception as e:
-                    logger.error(f"Error serializing update: {e}")
+                    logger.error(f"Error serializing chunk: {e}")
+                    logger.debug(f"Chunk type: {type(chunk)}, Chunk: {chunk}")
                     yield f"data: {json.dumps({'error': 'Serialization error'})}\n\n"
         except Exception as e:
             logger.error(f"Error generating response: {e}")

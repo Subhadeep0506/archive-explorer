@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
+from .user_settings import ApiKeyItem
 
 
 class ChatQueryRequest(BaseModel):
@@ -22,6 +23,9 @@ class ChatQueryRequest(BaseModel):
     )
     use_web_search: bool = Field(default=False, description="Whether to use web search")
     web_search_topic: str = Field(default="general", description="Topic for web search")
+    api_keys_encrypted: Optional[list[ApiKeyItem]] = Field(
+        None, description="List of encrypted API keys from user settings"
+    )
 
 
 class ChatQueryResponse(BaseModel):

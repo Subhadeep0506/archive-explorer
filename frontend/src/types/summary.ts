@@ -14,11 +14,13 @@ export interface SummaryResponse {
 export interface GenerateSummaryRequest {
     arxiv_id?: string;
     pdf_url?: string;
+    api_keys_encrypted?: import('./settings').ApiKeyItem[];
 }
 
 export interface GenerateUsabilityRequest {
     arxiv_id?: string;
     pdf_url?: string;
+    api_keys_encrypted?: import('./settings').ApiKeyItem[];
 }
 
 export interface GenerateSummaryResponse {
