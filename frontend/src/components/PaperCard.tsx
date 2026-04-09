@@ -8,18 +8,23 @@ import {
   MapPin,
   BookmarkPlus,
   Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { savePaper, ingestPaper } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { PaperHoverCard } from "@/components/PaperHoverCard";
 
 interface PaperCardProps {
   paper: Paper;
   index: number;
   savedPapers?: import("@/types/paper").SavedPaper[];
   fromSearch?: boolean;
+  fromPage?: string;
 }
 
 export function PaperCard({
@@ -27,9 +32,15 @@ export function PaperCard({
   index,
   savedPapers,
   fromSearch,
+  fromPage,
 }: PaperCardProps) {
   const { accessToken } = useAuth();
   const queryClient = useQueryClient();
+  const [showHoverCard, setShowHoverCard] = useState(false);
+  const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
+  const hoverTimeoutRef = useRef<NodeJS.Timeout>();
+  const cardRef = useRef<HTMLDivElement>(null);
+
   const safeDate = paper.date ? new Date(paper.date) : null;
   const formattedDate = safeDate
     ? safeDate.toLocaleDateString("en-US", {
@@ -40,6 +51,59 @@ export function PaperCard({
     : "Date pending";
 
   const isSaved = savedPapers?.some((sp) => sp.arxiv_id === paper.id);
+  const savedPaperData = savedPapers?.find((sp) => sp.arxiv_id === paper.id);
+  const isIngested = savedPaperData?.ingested ?? false;
+
+  const handleMouseEnter = () => {
+    if (cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect();
+      const cardWidth = 384; // w-96 = 24rem = 384px
+      const cardHeight = 400; // approximate height of hover card
+      const gap = 16; // 16px gap
+
+      // Calculate positions
+      let x = rect.right + gap;
+      let y = rect.top + rect.height / 2 - cardHeight / 2;
+
+      // Check if card goes off screen on the right
+      if (x + cardWidth > window.innerWidth) {
+        // Show on the left instead
+        x = rect.left - cardWidth - gap;
+      }
+
+      // Check if card goes off screen on the bottom
+      if (y + cardHeight > window.innerHeight) {
+        // Adjust to stay within viewport
+        y = window.innerHeight - cardHeight - 16;
+      }
+
+      // Check if card goes off screen on the top
+      if (y < 0) {
+        y = 16;
+      }
+
+      setHoverPosition({ x, y });
+    }
+
+    hoverTimeoutRef.current = setTimeout(() => {
+      setShowHoverCard(true);
+    }, 3000);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    setShowHoverCard(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const savePaperMutation = useMutation({
     mutationFn: () => savePaper(paper, accessToken),
@@ -61,9 +125,16 @@ export function PaperCard({
           );
         })
         .catch((error) => {
-          toast.error(`Failed to ingest document: ${error.message}`, {
+          const errorMsg = error instanceof Error
+            ? error.message
+            : typeof error === 'object' && error?.message
+              ? error.message
+              : "Unknown error occurred";
+          toast.error(`Failed to ingest document: ${errorMsg}`, {
             id: ingestToastId,
           });
+          // Refresh saved papers to update ingestion status
+          queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
         });
       queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
     },
@@ -84,14 +155,18 @@ export function PaperCard({
     : "Snapshot unavailable";
 
   return (
-    <Link
-      to={`/paper/${paper.id}`}
-      state={{ paper, ...(fromSearch && { fromSearch }) }}
-    >
-      <Card
-        className={`group h-full cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 animate-fade-in stagger-${(index % 6) + 1}`}
-        style={{ opacity: 0 }}
+    <>
+      <Link
+        to={`/paper/${paper.id}`}
+        state={{ paper, ...(fromSearch && { fromSearch }), ...(fromPage && { fromPage }) }}
       >
+        <Card
+          ref={cardRef}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          className={`group h-full cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 animate-fade-in stagger-${(index % 6) + 1}`}
+          style={{ opacity: 0 }}
+        >
         <div className="aspect-[16/9] rounded-t-lg overflow-hidden relative">
           {paper.thumbnailUrl ? (
             <img
@@ -109,21 +184,29 @@ export function PaperCard({
           </div>
         </div>
         <CardHeader className="pb-2 relative">
-          <h3 className="font-semibold text-base leading-snug line-clamp-2 group-hover:text-primary transition-colors pr-12">
+          <h3 className="font-semibold text-base leading-snug line-clamp-2 group-hover:text-primary transition-colors pr-24">
             {paper.title}
           </h3>
-          <Button
-            size="sm"
-            onClick={handleSavePaper}
-            disabled={isSaved || savePaperMutation.isPending}
-            className="absolute top-2 right-2 z-10 bg-chip-amber hover:bg-chip-amber/90 text-white h-8 w-8 p-0"
-          >
-            {savePaperMutation.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <BookmarkPlus className="w-4 h-4" />
+          <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+            {isSaved && isIngested && (
+              <div className="flex items-center gap-0.5 px-2 py-1 bg-background border border-border rounded text-xs">
+                <CheckCircle2 className="w-3 h-3 text-green-500" />
+                <span className="text-green-600 dark:text-green-400">Ready</span>
+              </div>
             )}
-          </Button>
+            <Button
+              size="sm"
+              onClick={handleSavePaper}
+              disabled={isSaved || savePaperMutation.isPending}
+              className="bg-chip-amber hover:bg-chip-amber/90 text-white h-8 w-8 p-0"
+            >
+              {savePaperMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <BookmarkPlus className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="pt-0 space-y-3">
           <p className="text-sm text-muted-foreground line-clamp-2">
@@ -154,7 +237,24 @@ export function PaperCard({
             </span>
           </div>
         </CardContent>
-      </Card>
-    </Link>
+        </Card>
+      </Link>
+
+      {/* Hover Card - Rendered via Portal to avoid stacking context issues */}
+      {showHoverCard &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              left: `${hoverPosition.x}px`,
+              top: `${hoverPosition.y}px`,
+              zIndex: 9999,
+            }}
+          >
+            <PaperHoverCard paper={paper} />
+          </div>,
+          document.body
+        )}
+    </>
   );
 }

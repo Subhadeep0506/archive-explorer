@@ -3,7 +3,8 @@ from ..vectorstore import VectorStoreFactory
 from langchain_pinecone import PineconeVectorStore
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_pymupdf4llm import PyMuPDF4LLMLoader
-from typing import List
+from typing import List, Optional
+from fastapi import Request
 from ...core.logger import SingletonLogger
 
 logger = SingletonLogger().get_logger()
@@ -11,10 +12,10 @@ logger = SingletonLogger().get_logger()
 class IngestionEngine:
     @staticmethod
     async def ingest_paper_using_paper_id(
-        paper_id: str, paper_url: str, embedding_model: str = "embed-multilingual-v3.0"
+        paper_id: str, paper_url: str, embedding_model: str = "embed-multilingual-v3.0", request: Optional[Request] = None
     ):
         try:
-            embedding = EmbeddingFactory.build_embedding_model(embedding_model)
+            embedding = EmbeddingFactory.build_embedding_model(embedding_model, request=request)
             vector_store: PineconeVectorStore = VectorStoreFactory.build_vector_store(
                 embedding_model=embedding
             )
@@ -34,11 +35,11 @@ class IngestionEngine:
             raise e
 
     @staticmethod
-    async def delete_paper_using_paper_ids(paper_ids: List[str]):
+    async def delete_paper_using_paper_ids(paper_ids: List[str], request: Optional[Request] = None):
         try:
             vector_store: PineconeVectorStore = VectorStoreFactory.build_vector_store(
                 embedding_model=EmbeddingFactory.build_embedding_model(
-                    "embed-multilingual-v3.0"
+                    "embed-multilingual-v3.0", request=request
                 )
             )
             await vector_store.adelete(filter={"paper_id": {"$in": paper_ids}})

@@ -4,10 +4,17 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { PaperPdfViewer } from "@/components/PdfViewer";
 import { UsabilityChart } from "@/components/UsabilityChart";
 import {
-  ArrowLeft,
   Calendar,
   Building2,
   MapPin,
@@ -55,6 +62,7 @@ export default function PaperDetail() {
   const queryClient = useQueryClient();
   const statePaper = location.state?.paper as Paper | undefined;
   const fromSearch = location.state?.fromSearch as boolean | undefined;
+  const fromPage = location.state?.fromPage as string | undefined; // Track which page user came from
 
   useEffect(() => {
     setIsDialogOpen(false);
@@ -96,11 +104,16 @@ export default function PaperDetail() {
   });
 
   const isSaved = savedPapers?.some((sp) => sp.arxiv_id === paper?.id);
+  const savedPaperData = savedPapers?.find((sp) => sp.arxiv_id === paper?.id);
+  const isIngested = savedPaperData?.ingested ?? false;
 
   const savePaperMutation = useMutation({
     mutationFn: () => savePaper(paper!, accessToken),
     onSuccess: () => {
       toast.success("Paper saved successfully!");
+      // Immediately refetch saved papers after save
+      queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
+
       // Start ingestion in background
       ingestPaper({
         paperUrl: paper!.pdfUrl,
@@ -111,14 +124,26 @@ export default function PaperDetail() {
           toast.success(
             "Document ingested successfully! You can now chat with this paper.",
           );
+          // Refetch saved papers immediately after ingestion completes
+          queryClient.refetchQueries({ queryKey: ["savedPapers"], type: "active" });
         })
         .catch((error) => {
-          toast.error(`Failed to ingest document: ${error.message}`);
+          const errorMsg = error instanceof Error
+            ? error.message
+            : typeof error === 'object' && error?.message
+              ? error.message
+              : "Unknown error occurred";
+          toast.error(`Failed to ingest document: ${errorMsg}`);
+          // Refresh saved papers to update ingestion status
+          queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
         });
-      queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
     },
     onError: (error) => {
-      toast.error(`Failed to save paper: ${error.message}`);
+      const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
+      const friendlyMsg = errorMsg.includes("already exists")
+        ? "This paper is already saved"
+        : `Failed to save paper: ${errorMsg}`;
+      toast.error(friendlyMsg);
     },
   });
 
@@ -136,7 +161,13 @@ export default function PaperDetail() {
       refetchSummary();
     },
     onError: (error) => {
-      toast.error(`Failed to generate summary: ${error.message}`);
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      const friendlyMsg = errorMsg.includes("not found")
+        ? "Paper not found. Please ensure it's saved and ingested."
+        : errorMsg.includes("timeout")
+          ? "Summary generation took too long. Please try again."
+          : `Failed to generate summary: ${errorMsg}`;
+      toast.error(friendlyMsg);
     },
   });
 
@@ -157,7 +188,13 @@ export default function PaperDetail() {
       refetchSummary();
     },
     onError: (error) => {
-      toast.error(`Failed to generate usability metrics: ${error.message}`);
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      const friendlyMsg = errorMsg.includes("not found")
+        ? "Paper not found. Please ensure it's saved and ingested."
+        : errorMsg.includes("timeout")
+          ? "Analysis took too long. Please try again."
+          : `Failed to generate metrics: ${errorMsg}`;
+      toast.error(friendlyMsg);
     },
   });
 
@@ -220,17 +257,41 @@ export default function PaperDetail() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-6 px-4">
-        <button
-          onClick={() =>
-            navigate("/app", {
-              state: fromSearch ? { openSearchDialog: true } : undefined,
-            })
-          }
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          {fromSearch ? "Back to Search" : "Back to Dashboard"}
-        </button>
+        <div className="mb-6">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  onClick={() => navigate("/app")}
+                  className="cursor-pointer"
+                >
+                  Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+
+              {fromPage === "/saved-papers" && (
+                <>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink
+                      onClick={() => navigate("/saved-papers")}
+                      className="cursor-pointer"
+                    >
+                      Saved Papers
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                </>
+              )}
+
+              <BreadcrumbItem>
+                <BreadcrumbPage className="max-w-xs truncate">
+                  {paper?.title}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-3 space-y-6">
@@ -266,7 +327,7 @@ export default function PaperDetail() {
                 </span>
               </div>
 
-              <div className="flex flex-wrap gap-3 mb-6">
+              <div className="flex flex-wrap gap-3 mb-2">
                 <Button
                   onClick={handleSavePaper}
                   disabled={isSaved || savePaperMutation.isPending}
@@ -281,7 +342,15 @@ export default function PaperDetail() {
                 </Button>
                 <Button
                   onClick={handleChat}
-                  className="bg-chip-violet hover:bg-chip-violet/90"
+                  disabled={!isSaved || !isIngested}
+                  className="bg-chip-violet hover:bg-chip-violet/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    !isSaved
+                      ? "Save the paper first to chat with it"
+                      : !isIngested
+                        ? "Paper is ingesting... Please wait a moment and refresh"
+                        : ""
+                  }
                 >
                   <MessageCircle className="w-4 h-4 mr-2" />
                   Chat with Paper
@@ -332,6 +401,11 @@ export default function PaperDetail() {
                   Copy BibTeX
                 </Button>
               </div>
+              {isSaved && !isIngested && (
+                <p className="text-sm text-amber-600 dark:text-amber-500">
+                  📥 Document is being ingested... You'll be able to chat with it shortly.
+                </p>
+              )}
             </div>
             <Card
               className="animate-fade-in"

@@ -174,12 +174,8 @@ async def query_paper(user_id: int, payload: ChatQueryRequest, request: Request)
 
                         # Add retrieved document sources
                         for doc in retrieved_docs:
-                            # Extract page number if available
-                            metadata = {}
-                            if "page_number" in doc.metadata:
-                                metadata["page_number"] = doc.metadata["page_number"]
-                            if "page" in doc.metadata:
-                                metadata["page"] = doc.metadata["page"]
+                            # Use all available metadata from the document
+                            doc_metadata = dict(doc.metadata) if doc.metadata else None
 
                             sources_to_create.append(
                                 SourceCreate(
@@ -189,12 +185,15 @@ async def query_paper(user_id: int, payload: ChatQueryRequest, request: Request)
                                     ],  # Limit text length
                                     source_type="document",
                                     source_url=doc.metadata.get("source", ""),
-                                    metadata=metadata if metadata else None,
+                                    metadata=doc_metadata,
                                 )
                             )
 
                         # Add web search result sources
                         for doc in web_search_results:
+                            # Use all available metadata from web documents
+                            web_metadata = dict(doc.metadata) if doc.metadata else None
+
                             sources_to_create.append(
                                 SourceCreate(
                                     message_id=assistant_message.id,
@@ -203,6 +202,7 @@ async def query_paper(user_id: int, payload: ChatQueryRequest, request: Request)
                                     ],  # Limit text length
                                     source_type="web",
                                     source_url=doc.metadata.get("url", ""),
+                                    metadata=web_metadata,
                                 )
                             )
 

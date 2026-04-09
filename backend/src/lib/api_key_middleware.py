@@ -1,15 +1,13 @@
 """
-Middleware to decrypt API keys from request payload and attach to request state.
+Dependency to load decrypted API keys from user settings into request state.
 """
 
 import os
-import json
 from typing import Optional
-from fastapi import Request, Response
-from starlette.datastructures import Headers
-from starlette.types import ASGIApp, Scope, Receive, Send, Message
+from fastapi import Request, Depends
 from cryptography.fernet import Fernet
 from ..core.logger import SingletonLogger
+from .auth import get_current_user
 
 logger = SingletonLogger().get_logger()
 
@@ -20,102 +18,56 @@ if not ENCRYPTION_KEY:
 fernet = Fernet(ENCRYPTION_KEY.encode())
 
 
-class APIKeyDecryptionMiddleware:
+async def load_user_api_keys(
+    request: Request, user_id: int = Depends(get_current_user)
+) -> int:
     """
-    Middleware that decrypts encrypted API keys from request body and stores them in request.state.
+    Dependency that loads the current user's API keys into request.state.
+    Explicitly depends on get_current_user to ensure user is authenticated first.
 
-    This middleware:
-    1. Checks if the request contains 'api_keys_encrypted' in the body
-    2. Decrypts each API key using Fernet encryption
-    3. Stores decrypted keys in request.state.decrypted_api_keys for use by controllers
+    Args:
+        request: FastAPI Request object
+        user_id: The authenticated user ID (from get_current_user dependency)
 
-    The decrypted keys are stored as a dictionary: {service_slug: api_key_value}
-    Example: {'groq': 'gsk_...', 'gemini': 'AIza...'}
+    Returns:
+        The user_id
     """
+    # Initialize empty dict if not already present
+    if not hasattr(request.state, "decrypted_api_keys"):
+        request.state.decrypted_api_keys = {}
 
-    def __init__(self, app: ASGIApp) -> None:
-        self.app = app
+    try:
+        from ..database.db import session_pool
+        from ..model.user_settings import UserSettings
+        from sqlalchemy import select
 
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
+        async with session_pool() as session:
+            stmt = select(UserSettings).where(UserSettings.user_id == user_id)
+            result = await session.execute(stmt)
+            user_settings = result.scalar_one_or_none()
 
-        if "state" not in scope:
-            scope["state"] = {}
-        scope["state"]["decrypted_api_keys"] = {}
-        method = scope.get("method", "")
-        if method in ["POST", "PUT", "PATCH"]:
-            body_parts = []
-            body_complete = False
-
-            async def receive_wrapper() -> Message:
-                nonlocal body_complete
-                message = await receive()
-
-                if message["type"] == "http.request":
-                    body = message.get("body", b"")
-                    if body:
-                        body_parts.append(body)
-
-                    if not message.get("more_body", False):
-                        body_complete = True
-                        full_body = b"".join(body_parts)
-                        self._process_api_keys(full_body, scope)
-
-                return message
-            await self.app(scope, receive_wrapper, send)
-        else:
-            await self.app(scope, receive, send)
-
-    def _process_api_keys(self, body_bytes: bytes, scope: Scope) -> None:
-        """Process and decrypt API keys from request body."""
-        if not body_bytes:
-            return
-
-        try:
-            body_json = json.loads(body_bytes)
-            if "api_keys_encrypted" in body_json:
-                api_keys_encrypted = body_json.get("api_keys_encrypted")
-                logger.debug(
-                    f"Found api_keys_encrypted in request: {len(api_keys_encrypted) if api_keys_encrypted else 0} keys"
-                )
-
-                if api_keys_encrypted and isinstance(api_keys_encrypted, list):
+            if user_settings:
+                # Get decrypted API keys
+                api_keys = user_settings.api_keys
+                if api_keys:
                     decrypted_keys = {}
-
-                    for item in api_keys_encrypted:
-                        if isinstance(item, dict):
-                            slug = item.get("slug")
-                            encrypted_key = item.get("api_key")
-
-                            if slug and encrypted_key:
-                                try:
-                                    decrypted_key = fernet.decrypt(
-                                        encrypted_key.encode()
-                                    ).decode()
-                                    decrypted_keys[slug] = decrypted_key
-                                    logger.debug(
-                                        f"Successfully decrypted API key for service '{slug}'"
-                                    )
-                                except Exception as decrypt_error:
-                                    logger.error(
-                                        f"Failed to decrypt API key for service '{slug}': {decrypt_error}"
-                                    )
-                    scope["state"]["decrypted_api_keys"] = decrypted_keys
-                    if decrypted_keys:
-                        logger.info(
-                            f"Successfully decrypted {len(decrypted_keys)} API key(s): {list(decrypted_keys.keys())}"
-                        )
-                    else:
-                        logger.warning("No API keys were successfully decrypted")
+                    for item in api_keys:
+                        slug = item.get("slug")
+                        api_key = item.get("api_key")
+                        if slug and api_key:
+                            decrypted_keys[slug] = api_key
+                    request.state.decrypted_api_keys = decrypted_keys
+                    logger.debug(
+                        f"Loaded {len(decrypted_keys)} API key(s) for user {user_id}: {list(decrypted_keys.keys())}"
+                    )
+                else:
+                    logger.debug(f"No API keys found for user {user_id}")
             else:
-                logger.debug("No api_keys_encrypted field in request body")
+                logger.debug(f"No user settings found for user {user_id}")
+    except Exception as e:
+        logger.error(f"Error loading user API keys: {e}")
 
-        except json.JSONDecodeError:
-            logger.debug("Request body is not JSON, skipping API key processing")
-        except Exception as e:
-            logger.error(f"Error processing API keys: {e}")
+    return user_id
 
 
 def get_decrypted_api_key(request: Request, service_slug: str) -> Optional[str]:

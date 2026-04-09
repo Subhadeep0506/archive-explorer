@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Request
 from ..controller import chat as chat_controller
 from ..schema.chat import ChatQueryRequest
 from ..lib.auth import get_current_user
+from ..lib.api_key_middleware import load_user_api_keys
 
 
 router = APIRouter()
@@ -13,6 +14,7 @@ async def query_paper_endpoint(
     payload: ChatQueryRequest,
     request: Request,
     user_id: int = Depends(get_current_user),
+    _: int = Depends(load_user_api_keys),
 ):
     """
     Query a paper with conversation history using LangGraph.

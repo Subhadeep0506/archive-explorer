@@ -121,7 +121,7 @@ export default function Index() {
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search papers..."
+                  placeholder="Search papers... (Cmd+K)"
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -167,21 +167,34 @@ export default function Index() {
                   paper={paper}
                   index={index}
                   savedPapers={savedPapers}
+                  fromPage="/app"
                 />
               ))}
             </div>
           ) : (
-            <PapersTable papers={filteredPapers} savedPapers={savedPapers} />
+            <PapersTable papers={filteredPapers} savedPapers={savedPapers} fromPage="/app" />
           )}
 
           {filteredPapers.length === 0 && !isLoading && (
             <div className="text-center py-12">
-              <p className="text-lg text-muted-foreground">
+              <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <p className="text-lg text-muted-foreground mb-2">
                 No papers found matching your criteria
               </p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mb-6">
                 Try adjusting your filters or search query
               </p>
+              {(searchQuery || filters.years.length > 0) && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilters({ topics: [], years: [] });
+                  }}
+                >
+                  Clear search and filters
+                </Button>
+              )}
             </div>
           )}
 

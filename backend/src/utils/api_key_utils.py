@@ -2,7 +2,6 @@
 Utility functions for API key management and extraction.
 """
 
-import os
 from typing import Optional, Dict
 from fastapi import Request
 
@@ -11,12 +10,14 @@ def get_api_key_for_provider(
     request: Request, provider: str, decrypted_keys: Optional[Dict[str, str]] = None
 ) -> Optional[str]:
     """
-    Get the API key for a specific provider from decrypted keys or environment variables.
+    Get the API key for a specific provider from decrypted keys (user settings).
 
     This function checks:
     1. User-provided decrypted API keys from request (if passed as parameter)
     2. Request state decrypted API keys (set by middleware)
-    3. Environment variables as fallback
+
+    User-provided API keys (gemini, groq, openrouter) should ONLY come from user settings,
+    not from environment variables.
 
     Args:
         request: FastAPI Request object
@@ -49,44 +50,45 @@ def get_api_key_for_provider(
         raise ValueError(
             "request.state.decrypted_api_keys is not set. Ensure APIKeyDecryptionMiddleware is properly configured."
         )
-    env_var_map = {
-        "gemini": "GOOGLE_API_KEY",
-        "groq": "GROQ_API_KEY",
-        "openrouter": "OPENROUTER_API_KEY",
-    }
-    env_var = env_var_map.get(provider)
-    if env_var:
-        api_key = os.getenv(env_var)
-        if api_key:
-            return api_key
     return None
 
 
 def get_api_key_for_service(
-    request: Optional[Request], service_slug: str, env_var_name: str
+    request: Optional[Request], service_slug: str, env_var_name: str = None
 ) -> Optional[str]:
     """
-    Get API key for a service (embedding, web search, reranking, etc.)
+    Get API key for a user-provided service (embedding, web search, reranking, etc.)
+
+    User-provided services (cohere, tavily, firecrawl, langsearch) should ONLY come from user settings,
+    not from environment variables.
 
     Args:
         request: FastAPI Request object (can be None)
         service_slug: The service slug (e.g., 'cohere', 'tavily', 'firecrawl', 'langsearch')
-        env_var_name: Environment variable name to fall back to
+        env_var_name: Deprecated - no longer used. Only user settings are checked.
 
     Returns:
         The API key if found, None otherwise
+
+    Raises:
+        ValueError: If the API key is not found in user settings
     """
-    # 1. Check request state (set by middleware)
+    # Check request state (set by middleware with user's decrypted keys)
     if request and hasattr(request.state, "decrypted_api_keys"):
         api_key = request.state.decrypted_api_keys.get(service_slug)
         if api_key:
             return api_key
 
-    api_key = os.getenv(env_var_name)
-    if api_key:
-        return api_key
+    # No fallback to environment variables - user must provide the key in Settings
+    service_names = {
+        "cohere": "Cohere",
+        "tavily": "Tavily",
+        "firecrawl": "Firecrawl",
+        "langsearch": "LangSearch",
+    }
+    service_display = service_names.get(service_slug, service_slug)
     raise ValueError(
-        f"No API key found for service '{service_slug}'. Ensure it is set in request.state.decrypted_api_keys or environment variable '{env_var_name}'."
+        f"No {service_display} API key found. Please add your {service_display} API key in Settings."
     )
 
 

@@ -61,6 +61,56 @@ const getUserApiKeys = (): import("@/types/settings").ApiKeyItem[] | null => {
     }
 };
 
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+    if (isRefreshing && refreshPromise) {
+        return refreshPromise;
+    }
+
+    isRefreshing = true;
+    refreshPromise = (async () => {
+        try {
+            const refreshToken = typeof window !== "undefined"
+                ? window.localStorage.getItem(REFRESH_TOKEN_KEY)
+                : null;
+
+            if (!refreshToken) {
+                return null;
+            }
+
+            const url = buildUrl("/auth/refresh");
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ refresh_token: refreshToken }),
+            });
+
+            if (!response.ok) {
+                return null;
+            }
+
+            const data = await response.json() as { access_token: string };
+            const newAccessToken = data.access_token;
+
+            // Update stored access token
+            if (typeof window !== "undefined") {
+                window.localStorage.setItem(ACCESS_TOKEN_KEY, newAccessToken);
+            }
+
+            return newAccessToken;
+        } catch (error) {
+            return null;
+        } finally {
+            isRefreshing = false;
+            refreshPromise = null;
+        }
+    })();
+
+    return refreshPromise;
+}
+
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
     const { method = "GET", body, headers, params, token, auth = true, includeApiKeys = false } = options;
     const url = buildUrl(path, params);
@@ -99,11 +149,30 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
         finalHeaders.set("Authorization", `Bearer ${resolvedToken}`);
     }
 
-    const response = await fetch(url, {
+    let response = await fetch(url, {
         method,
         headers: finalHeaders,
         body: payload,
     });
+
+    // If 401 and we have a refresh token, try to refresh and retry
+    if (response.status === 401 && auth && typeof window !== "undefined") {
+        const refreshToken = window.localStorage.getItem(REFRESH_TOKEN_KEY);
+        if (refreshToken && !path.includes("/auth/")) {
+            const newAccessToken = await refreshAccessToken();
+            if (newAccessToken) {
+                // Retry the request with the new token
+                const retryHeaders = new Headers(headers ?? {});
+                retryHeaders.set("Authorization", `Bearer ${newAccessToken}`);
+
+                response = await fetch(url, {
+                    method,
+                    headers: retryHeaders,
+                    body: payload,
+                });
+            }
+        }
+    }
 
     if (!response.ok) {
         let message = response.statusText || "Request failed";

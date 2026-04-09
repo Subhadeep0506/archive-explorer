@@ -61,7 +61,7 @@ class UsabilityEngine:
             dict: A dictionary containing the usability summary with keys 'domain_applicability', 'reproducibility_score', 'new_tech_applicability', and 'impact_score'.
         """
         try:
-            embedding = EmbeddingFactory.build_embedding_model()
+            embedding = EmbeddingFactory.build_embedding_model(request=request)
             vector_store = VectorStoreFactory.build_vector_store(
                 embedding_model=embedding
             )

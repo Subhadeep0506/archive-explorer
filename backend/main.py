@@ -15,7 +15,6 @@ from src.database.db import Base, engine
 from src.errors import DatabaseConnectionError
 from src.core.logger import SingletonLogger
 from fastapi.middleware.cors import CORSMiddleware
-from src.lib.api_key_middleware import APIKeyDecryptionMiddleware
 from src.core.chat_engine.query import ChatEngine
 from src.core.chat_engine.agent_state import AgentState
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -79,8 +78,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.add_middleware(APIKeyDecryptionMiddleware)
 app.openapi_components = {
     "securitySchemes": {
         "BearerAuth": {

@@ -1,4 +1,3 @@
-import os
 import asyncio
 from typing import List, Optional
 from fastapi import Request
@@ -25,7 +24,7 @@ class FirecrawlLoader:
         loader = BasFireCrawlLoader(
             url=url,
             api_key=api_key,
-            mode="extract",
+            mode="scrape",
             params={"formats": ["markdown"]},
         )
         try:
@@ -60,12 +59,7 @@ class FirecrawlLoader:
         logger = SingletonLogger().get_logger()
         try:
             if not api_key and request:
-                api_key = get_api_key_for_service(
-                    request, "firecrawl", "FIRECRAWL_API_KEY"
-                )
-
-            if not api_key:
-                api_key = os.getenv("FIRECRAWL_API_KEY")
+                api_key = get_api_key_for_service(request, "firecrawl")
 
             if not urls:
                 return []

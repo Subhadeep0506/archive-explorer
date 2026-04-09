@@ -48,19 +48,14 @@ class LLMFactory:
                 api_key = get_api_key_for_provider(request, provider)
 
             if not api_key:
-                env_var_map = {
-                    "gemini": "GOOGLE_API_KEY",
-                    "groq": "GROQ_API_KEY",
-                    "openrouter": "OPENROUTER_API_KEY",
+                provider_names = {
+                    "gemini": "Google Gemini",
+                    "groq": "Groq",
+                    "openrouter": "OpenRouter",
                 }
-                env_var = env_var_map.get(provider.lower())
-                if env_var:
-                    api_key = os.getenv(env_var)
-
-            if not api_key:
+                provider_display = provider_names.get(provider.lower(), provider)
                 raise ValueError(
-                    f"No API key found for provider '{provider}'. "
-                    f"Please provide API key in request or set environment variable."
+                    f"No API key found for '{provider_display}'. Please add your {provider_display} API key in Settings."
                 )
 
             if provider.lower() == "gemini":

@@ -1,5 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
+from fastapi import HTTPException, Request
+from typing import Optional
 
 from ..core.ingest_engine.ingestion import IngestionEngine
 from ..schema.ingestion import PaperIngest, PaperDelete
@@ -10,13 +12,14 @@ from ..model.paper import Paper
 logger = SingletonLogger().get_logger()
 
 
-async def ingest_paper(payload: PaperIngest, user_id: int) -> dict:
+async def ingest_paper(payload: PaperIngest, user_id: int, request: Optional[Request] = None) -> dict:
     """Ingest a paper into the vector store using the provided URL."""
     try:
         await IngestionEngine.ingest_paper_using_paper_id(
             paper_id=payload.arxiv_id,
             paper_url=payload.paper_url,
             embedding_model=payload.embedding_model,
+            request=request,
         )
         await _set_ingested_flag(
             user_id=user_id,
@@ -25,24 +28,46 @@ async def ingest_paper(payload: PaperIngest, user_id: int) -> dict:
             ingested=True,
         )
         return {"message": "Paper ingested successfully"}
+    except ValueError as e:
+        # Handle validation errors (like missing API keys)
+        error_msg = str(e)
+        logger.error(f"Validation error ingesting paper: {error_msg}")
+        raise HTTPException(
+            status_code=422,
+            detail=error_msg
+        )
     except Exception as e:
         logger.error(f"Error ingesting paper: {e}")
-        raise e
+        raise HTTPException(
+            status_code=500,
+            detail=str(e) if str(e) else "Failed to ingest paper"
+        )
 
 
-async def delete_paper(payload: PaperDelete, user_id: int) -> dict:
+async def delete_paper(payload: PaperDelete, user_id: int, request: Optional[Request] = None) -> dict:
     """Delete a paper from the vector store using the paper ID."""
     try:
-        await IngestionEngine.delete_paper_using_paper_ids(paper_ids=payload.paper_ids)
+        await IngestionEngine.delete_paper_using_paper_ids(paper_ids=payload.paper_ids, request=request)
         await _set_ingested_flag(
             user_id=user_id,
             arxiv_ids=payload.paper_ids,
             ingested=False,
         )
         return {"message": "Paper deleted successfully"}
+    except ValueError as e:
+        # Handle validation errors (like missing API keys)
+        error_msg = str(e)
+        logger.error(f"Validation error deleting paper: {error_msg}")
+        raise HTTPException(
+            status_code=422,
+            detail=error_msg
+        )
     except Exception as e:
         logger.error(f"Error deleting paper: {e}")
-        raise e
+        raise HTTPException(
+            status_code=500,
+            detail=str(e) if str(e) else "Failed to delete paper"
+        )
 
 
 async def _set_ingested_flag(

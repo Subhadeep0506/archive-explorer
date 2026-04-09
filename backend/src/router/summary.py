@@ -8,6 +8,7 @@ from ..schema.summary import (
     UsabilityGenerateRequest,
 )
 from ..lib.auth import get_current_user
+from ..lib.api_key_middleware import load_user_api_keys
 
 
 router = APIRouter()
@@ -31,6 +32,7 @@ async def generate_summary(
     arxiv_id: str,
     request: Request,
     user_id: int = Depends(get_current_user),
+    _: int = Depends(load_user_api_keys),
 ):
     """Generate a summary for a specific paper (backward compatibility)."""
     summary = await summary_controller.generate_paper_summary(
@@ -44,6 +46,7 @@ async def generate_summary_flexible(
     payload: SummaryGenerateRequest,
     request: Request,
     user_id: int = Depends(get_current_user),
+    _: int = Depends(load_user_api_keys),
 ):
     """Generate a summary for a paper using arxiv_id or pdf_url."""
     summary = await summary_controller.generate_paper_summary(
@@ -60,6 +63,7 @@ async def generate_usability(
     arxiv_id: str,
     request: Request,
     user_id: int = Depends(get_current_user),
+    _: int = Depends(load_user_api_keys),
 ):
     """Generate usability metrics for a specific paper (backward compatibility)."""
     usability_data = await summary_controller.generate_paper_usability(
@@ -79,6 +83,7 @@ async def generate_usability_flexible(
     payload: UsabilityGenerateRequest,
     request: Request,
     user_id: int = Depends(get_current_user),
+    _: int = Depends(load_user_api_keys),
 ):
     """Generate usability metrics for a paper using arxiv_id or pdf_url."""
     usability_data = await summary_controller.generate_paper_usability(

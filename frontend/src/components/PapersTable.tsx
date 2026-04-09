@@ -27,12 +27,14 @@ interface PapersTableProps {
   papers: Paper[];
   savedPapers?: import("@/types/paper").SavedPaper[];
   fromSearch?: boolean;
+  fromPage?: string;
 }
 
 export function PapersTable({
   papers,
   savedPapers,
   fromSearch,
+  fromPage,
 }: PapersTableProps) {
   const { accessToken } = useAuth();
   const queryClient = useQueryClient();
@@ -102,7 +104,7 @@ export function PapersTable({
                 <TableCell>
                   <Link
                     to={`/paper/${paper.id}`}
-                    state={{ paper, ...(fromSearch && { fromSearch }) }}
+                    state={{ paper, ...(fromSearch && { fromSearch }), ...(fromPage && { fromPage }) }}
                     className="font-medium text-foreground hover:text-primary transition-colors line-clamp-2"
                   >
                     {paper.title}
@@ -119,7 +121,7 @@ export function PapersTable({
                 <TableCell>
                   <Link
                     to={`/paper/${paper.id}`}
-                    state={{ paper, ...(fromSearch && { fromSearch }) }}
+                    state={{ paper, ...(fromSearch && { fromSearch }), ...(fromPage && { fromPage }) }}
                   >
                     <Badge
                       variant="outline"

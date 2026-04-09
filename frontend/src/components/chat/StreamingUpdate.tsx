@@ -382,7 +382,7 @@ export function StreamingUpdate({
           <StepIcon status={status} />
         </div>
 
-        <div className={!isLast ? "pb-5 pt-1" : "pt-1"}>
+        <div className={!isLast ? "pb-5" : "pt-1"}>
           {status !== "done" && (
             <div
               className={`text-sm font-medium leading-none ${status === "active" ? "text-chip-violet" : "text-muted-foreground"}`}

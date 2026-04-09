@@ -125,6 +125,7 @@ export interface StreamingNodeUpdate {
 export interface StreamingState {
   nodes: StreamingNodeUpdate[];
   finalResponse: string;
+  sources?: ChatMessage['sources'];
   responseMetadata?: {
     completion_tokens?: number;
     prompt_tokens?: number;

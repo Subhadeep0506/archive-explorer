@@ -1,4 +1,3 @@
-import os
 import requests
 import json
 from typing import Dict, Optional
@@ -48,12 +47,7 @@ class LangSearchClient:
             return [], []
 
         if not api_key and request:
-            api_key = get_api_key_for_service(
-                request, "langsearch", "LANGSEARCH_API_KEY"
-            )
-
-        if not api_key:
-            api_key = os.getenv("LANGSEARCH_API_KEY")
+            api_key = get_api_key_for_service(request, "langsearch")
 
         payload = json.dumps(
             {
@@ -95,7 +89,7 @@ class LangSearchClient:
 
     @staticmethod
     async def search(
-        query: str, num: int = 10, freshness: str = "noLimit"
+        query: str, num: int = 10, freshness: str = "noLimit", api_key: Optional[str] = None, request: Optional[Request] = None
     ) -> list[Dict[str, str]]:
         """
         Perform a web search using LangSearch API.
@@ -104,10 +98,15 @@ class LangSearchClient:
             query (str): The search query.
             num (int, optional): The number of results to return. Defaults to 10.
             freshness (str, optional): The freshness filter for search results. Defaults to "noLimit". Options include "oneDay", "oneWeek", "oneMonth", "oneYear", and "noLimit".
+            api_key (str, optional): LangSearch API key. If not provided, will fetch from request.
+            request (Request, optional): FastAPI Request object to fetch API key from.
 
         Returns:
             list[Dict[str, str]]: A list of dictionaries representing the search results.
         """
+        if not api_key and request:
+            api_key = get_api_key_for_service(request, "langsearch")
+
         payload = json.dumps(
             {
                 "query": query,
@@ -116,7 +115,7 @@ class LangSearchClient:
             }
         )
         headers = {
-            "Authorization": f'Bearer {os.getenv("LANGSEARCH_API_KEY")}',
+            "Authorization": f'Bearer {api_key}',
             "Content-Type": "application/json",
         }
         try:

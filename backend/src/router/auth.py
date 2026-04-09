@@ -7,8 +7,9 @@ from ..controller.auth import (
     register_user,
     login_user,
     delete_user_account,
+    refresh_access_token,
 )
-from ..schema.auth import RegisterRequest, LoginRequest
+from ..schema.auth import RegisterRequest, LoginRequest, RefreshTokenRequest
 from ..lib.auth import get_current_user
 
 router = APIRouter()
@@ -24,6 +25,12 @@ async def register(register_data: RegisterRequest):
 async def login(login_data: LoginRequest, request: Request):
     """Login with email and password"""
     return await login_user(login_data, request)
+
+
+@router.post("/refresh")
+async def refresh(refresh_data: RefreshTokenRequest):
+    """Refresh access token using refresh token"""
+    return await refresh_access_token(refresh_data.refresh_token)
 
 
 @router.get("/google/login")

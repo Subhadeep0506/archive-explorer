@@ -583,6 +583,27 @@ export default function ChatScreen() {
                 }
               });
 
+              // Extract sources from retrieved documents
+              if (nodeKey === "context_retriever_node" && nodeData.retrieved_docs) {
+                const sources = nodeData.retrieved_docs.map(
+                  (doc: any, index: number) => ({
+                    id: index,
+                    source_text: doc.page_content?.slice(0, 200) || "",
+                    source_url:
+                      doc.metadata?.source ||
+                      doc.metadata?.file_path ||
+                      doc.metadata?.url ||
+                      "",
+                    source_type: "document",
+                    metadata: doc.metadata || {},
+                  })
+                );
+                setStreamingState((prev) => ({
+                  ...prev,
+                  sources,
+                }));
+              }
+
               // Extract final response if present (only if we haven't received tokens)
               if (nodeKey === "generate_response_node" && nodeData.response) {
                 // Only set finalResponse if we haven't been accumulating tokens

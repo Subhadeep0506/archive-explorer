@@ -101,6 +101,7 @@ async def get_message(message_id: int, user_id: int) -> MessageResponse:
                         source_text=source.source_text,
                         source_type=source.source_type,
                         source_url=source.source_url,
+                        metadata=source.source_metadata,
                         created_at=source.created_at,
                         updated_at=source.updated_at,
                     )
@@ -157,6 +158,7 @@ async def get_messages_by_session(
                             source_text=source.source_text,
                             source_type=source.source_type,
                             source_url=source.source_url,
+                            metadata=source.source_metadata,
                             created_at=source.created_at,
                             updated_at=source.updated_at,
                         )
@@ -235,6 +237,7 @@ async def update_message(
                         source_text=source.source_text,
                         source_type=source.source_type,
                         source_url=source.source_url,
+                        metadata=source.source_metadata,
                         created_at=source.created_at,
                         updated_at=source.updated_at,
                     )

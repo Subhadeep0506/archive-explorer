@@ -11,6 +11,8 @@ import {
   FileText,
   BookOpen,
   Loader2,
+  Copy,
+  Check,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -72,6 +74,7 @@ export function ChatMessageBubble({
   const [isLiking, setIsLiking] = useState(false);
   const [isDisliking, setIsDisliking] = useState(false);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   // Ensure content is always a string for ReactMarkdown
   const messageContent =
@@ -112,6 +115,16 @@ export function ChatMessageBubble({
       } finally {
         setIsSubmittingFeedback(false);
       }
+    }
+  };
+
+  const handleCopyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(messageContent);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy message:", error);
     }
   };
 
@@ -423,6 +436,19 @@ export function ChatMessageBubble({
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <ThumbsDown className="w-3.5 h-3.5" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={handleCopyMessage}
+              title={isCopied ? "Copied!" : "Copy message"}
+            >
+              {isCopied ? (
+                <Check className="w-3.5 h-3.5 text-green-500" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
               )}
             </Button>
             <Button

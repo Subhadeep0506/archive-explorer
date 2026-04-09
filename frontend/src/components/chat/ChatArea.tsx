@@ -188,6 +188,7 @@ export function ChatArea({
                   ? streamingState.finalResponse
                   : JSON.stringify(streamingState.finalResponse),
               timestamp: new Date().toISOString(),
+              sources: streamingState.sources,
             }}
             isStreaming={false}
             metadata={streamingState.responseMetadata}

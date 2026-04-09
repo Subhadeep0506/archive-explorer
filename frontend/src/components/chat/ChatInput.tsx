@@ -77,7 +77,7 @@ export function ChatInput({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about this paper..."
+              placeholder="Ask about this paper... (Shift+Enter for newline)"
               className="resize-none pr-14 pb-2 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 relative z-10"
               style={{
                 height: "60px",

@@ -26,15 +26,22 @@ async def create_sources(sources: List[SourceCreate]) -> List[SourceResponse]:
                     source_text=source.source_text,
                     source_type=source.source_type,
                     source_url=source.source_url,
+                    source_metadata=source.metadata,
                 )
                 for source in sources
             ]
             session.add_all(source_objects)
+            await session.flush()  # Flush to get IDs
+
+            # Get IDs of created sources to re-query them
+            source_ids = [source_obj.id for source_obj in source_objects]
             await session.commit()
 
-            # Refresh all objects to get IDs and timestamps
-            for source_obj in source_objects:
-                await session.refresh(source_obj)
+            # Re-query sources from database to ensure all fields are properly loaded
+            result = await session.execute(
+                select(Source).where(Source.id.in_(source_ids))
+            )
+            persisted_sources = result.scalars().all()
 
             return [
                 SourceResponse(
@@ -43,10 +50,11 @@ async def create_sources(sources: List[SourceCreate]) -> List[SourceResponse]:
                     source_text=source.source_text,
                     source_type=source.source_type,
                     source_url=source.source_url,
+                    metadata=source.source_metadata,
                     created_at=source.created_at,
                     updated_at=source.updated_at,
                 )
-                for source in source_objects
+                for source in persisted_sources
             ]
     except DBAPIError as e:
         logger.exception(f"Database connection error creating sources: {str(e)}")
@@ -76,6 +84,7 @@ async def get_sources_by_message(message_id: int) -> List[SourceResponse]:
                     source_text=source.source_text,
                     source_type=source.source_type,
                     source_url=source.source_url,
+                    metadata=source.source_metadata,
                     created_at=source.created_at,
                     updated_at=source.updated_at,
                 )

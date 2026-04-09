@@ -1,5 +1,4 @@
 import asyncio
-import os
 from typing import List, Dict, Optional
 from fastapi import Request
 
@@ -20,19 +19,14 @@ class TavilyWebSearch:
         request: Optional[Request] = None,
     ) -> List[Dict[str, str]]:
         if not api_key and request:
-            api_key = get_api_key_for_service(
-                request, "tavily", "TAVILY_SEARCH_API_KEY"
-            )
-
-        if not api_key:
-            api_key = os.getenv("TAVILY_SEARCH_API_KEY")
+            api_key = get_api_key_for_service(request, "tavily")
 
         tavily_api_key = api_key
         logger = SingletonLogger().get_logger()
 
         def _call():
             search = TavilySearch(tavily_api_key=tavily_api_key, topic=topic)
-            return search.run(query, num_results=min(max(1, num), 50))
+            return search.run(query, num_results=num // 2)
 
         loop = asyncio.get_event_loop()
         try:

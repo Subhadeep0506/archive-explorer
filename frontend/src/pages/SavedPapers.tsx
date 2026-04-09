@@ -281,13 +281,16 @@ export default function SavedPapers() {
       toast.success(`"${paper.title}" ingested successfully.`, {
         id: context?.toastId,
       });
-      queryClient.invalidateQueries({ queryKey: ["saved-papers"] });
+      // Refetch to update ingestion status immediately
+      queryClient.refetchQueries({ queryKey: ["saved-papers"], type: "active" });
     },
     onError: (error, paper, context) => {
       const message = error instanceof Error ? error.message : "Unknown error";
       toast.error(`Failed to ingest "${paper?.title ?? "paper"}": ${message}`, {
         id: context?.toastId,
       });
+      // Refresh saved papers to update ingestion status
+      queryClient.invalidateQueries({ queryKey: ["saved-papers"] });
     },
     onSettled: () => {
       setIngestingPaperId(null);
@@ -691,7 +694,7 @@ export default function SavedPapers() {
                       <TableCell>
                         <Link
                           to={`/paper/${paper.arxiv_id}`}
-                          state={{ paper: normalizeSavedPaper(paper) }}
+                          state={{ paper: normalizeSavedPaper(paper), fromPage: "/saved-papers" }}
                           className="font-medium text-foreground hover:text-primary transition-colors line-clamp-2"
                         >
                           {paper.title}
@@ -715,7 +718,7 @@ export default function SavedPapers() {
                         {shortDate}
                       </TableCell>
                       <TableCell>
-                        <Link to={`/paper/${paper.arxiv_id}`}>
+                        <Link to={`/paper/${paper.arxiv_id}`} state={{ fromPage: "/saved-papers" }}>
                           <Badge
                             variant="outline"
                             className="cursor-pointer bg-chip-violet-bg text-chip-violet border-chip-violet/30 hover:bg-chip-violet hover:text-white transition-colors"

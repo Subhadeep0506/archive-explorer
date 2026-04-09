@@ -428,3 +428,63 @@ async def delete_user_account(user_id: int):
             f"Unexpected error deleting user account for user_id={user_id}: {str(e)}"
         )
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+async def refresh_access_token(refresh_token: str):
+    """Refresh access token using a valid refresh token"""
+    try:
+        async with session_pool() as session:
+            # Find the login session with this refresh token
+            result = await session.execute(
+                select(LoginSession).where(
+                    LoginSession.refresh_token == refresh_token,
+                    LoginSession.is_active == True,
+                )
+            )
+            login_session = result.scalar_one_or_none()
+
+            if not login_session:
+                logger.warning("Token refresh attempt with invalid refresh token")
+                raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+            # Get the user
+            user_result = await session.execute(
+                select(User).where(User.id == login_session.user_id)
+            )
+            user = user_result.scalar_one_or_none()
+
+            if not user:
+                logger.warning(
+                    f"Token refresh for non-existent user: user_id={login_session.user_id}"
+                )
+                raise HTTPException(status_code=401, detail="User not found")
+
+            # Create new access token
+            new_access_token, token_expires_at = create_access_token(
+                data={"sub": str(user.id)}
+            )
+
+            # Update the login session with new access token
+            login_session.access_token = new_access_token
+            login_session.token_expires_at = token_expires_at
+            await session.commit()
+
+            logger.info(f"Token refreshed successfully for user: {user.username}")
+            return {
+                "access_token": new_access_token,
+                "token_type": "bearer",
+                "expires_in": int(
+                    (token_expires_at - datetime.utcnow()).total_seconds()
+                ),
+            }
+    except HTTPException:
+        raise
+    except DBAPIError as e:
+        logger.exception(f"Database connection error during token refresh: {str(e)}")
+        raise DatabaseConnectionError(str(e))
+    except SQLAlchemyError as e:
+        logger.error(f"Database error during token refresh: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to refresh token")
+    except Exception as e:
+        logger.error(f"Unexpected error during token refresh: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")

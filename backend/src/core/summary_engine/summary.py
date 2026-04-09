@@ -20,7 +20,7 @@ class SummaryEngine:
         arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None
     ) -> str:
         try:
-            embedding = EmbeddingFactory.build_embedding_model()
+            embedding = EmbeddingFactory.build_embedding_model(request=request)
             vector_store = VectorStoreFactory.build_vector_store(
                 embedding_model=embedding
             )
