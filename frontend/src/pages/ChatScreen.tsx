@@ -20,7 +20,8 @@ import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { Button } from "@/components/ui/button";
-import { FileText, ExternalLink, X } from "lucide-react";
+import { PdfViewer } from "@/components/ui/pdf-viewer";
+import { X } from "lucide-react";
 import type { ChatConfig } from "@/components/chat/ChatConfigPopover";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -331,6 +332,33 @@ export default function ChatScreen() {
   const [isPdfSheetOpen, setIsPdfSheetOpen] = useState(false);
   const [pdfSheetWidth, setPdfSheetWidth] = useState(40); // percentage of viewport width
   const [isResizing, setIsResizing] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(22); // percentage of viewport width
+  const [isSidebarResizing, setIsSidebarResizing] = useState(false);
+
+  // Handle mouse resizing of sidebar
+  const handleSidebarResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsSidebarResizing(true);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const newWidthPercent = (moveEvent.clientX / window.innerWidth) * 100;
+      // Constrain between 20% and 40%
+      setSidebarWidth(Math.min(Math.max(newWidthPercent, 20), 40));
+    };
+
+    const handleMouseUp = () => {
+      setIsSidebarResizing(false);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
 
   // Handle mouse resizing of PDF sheet
   const handleResizeStart = (e: React.MouseEvent) => {
@@ -818,71 +846,85 @@ export default function ChatScreen() {
   }
 
   return (
-    <div className="h-screen flex bg-background">
-      {/* Global overlay during resize to prevent iframe from capturing events */}
+    <div className="h-screen bg-sidebar overflow-hidden flex">
+      {/* Overlays during resize to block iframe/panel event capture */}
       {isResizing && <div className="fixed inset-0 z-50 cursor-ew-resize" />}
+      {isSidebarResizing && <div className="fixed inset-0 z-50 cursor-col-resize" />}
 
-      <ChatSidebar
-        conversations={conversations}
-        activeConversationId={
-          typeof activeSessionId === "number" ? String(activeSessionId) : null
-        }
-        onSelectConversation={handleSelectConversation}
-        onNewChat={handleNewChat}
-        onDeleteConversation={handleDeleteConversation}
-        onRenameConversation={handleRenameConversation}
-        deletingConversationId={
-          typeof deletingSessionId === "number"
-            ? String(deletingSessionId)
-            : null
-        }
-        renamingConversationId={
-          typeof renamingSessionId === "number"
-            ? String(renamingSessionId)
-            : null
-        }
-        isLoadingSessions={isSessionsLoading}
-        isCreatingSession={createSessionMutation.isPending}
-      />
-
+      {/* Sidebar — width driven by sidebarWidth state */}
       <div
-        className={`flex-1 flex flex-col min-w-0 ${!isResizing ? "transition-all duration-300" : ""}`}
+        className="relative shrink-0 h-full"
+        style={{ width: `${sidebarWidth}%` }}
+      >
+        <ChatSidebar
+          conversations={conversations}
+          activeConversationId={
+            typeof activeSessionId === "number" ? String(activeSessionId) : null
+          }
+          onSelectConversation={handleSelectConversation}
+          onNewChat={handleNewChat}
+          onDeleteConversation={handleDeleteConversation}
+          onRenameConversation={handleRenameConversation}
+          deletingConversationId={
+            typeof deletingSessionId === "number"
+              ? String(deletingSessionId)
+              : null
+          }
+          renamingConversationId={
+            typeof renamingSessionId === "number"
+              ? String(renamingSessionId)
+              : null
+          }
+          isLoadingSessions={isSessionsLoading}
+          isCreatingSession={createSessionMutation.isPending}
+        />
+
+        {/* Drag handle on right edge of sidebar */}
+        <div
+          className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-10 group hover:bg-primary/40 bg-border/30 transition-colors"
+          onMouseDown={handleSidebarResizeStart}
+        >
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-1 rounded-full bg-border group-hover:bg-primary/60 transition-colors" />
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div
+        className={`flex-1 flex flex-col bg-sidebar min-w-0 ${!isResizing ? "transition-all duration-300" : ""}`}
         style={
           isPdfSheetOpen ? { marginRight: `${pdfSheetWidth}vw` } : undefined
         }
       >
-        <ChatHeader
-          title={activeConversation?.title || paper.title}
-          pdfUrl={paper.pdfUrl || paper.htmlUrl || ""}
-          onBack={handleBack}
-          onSummarize={handleSummarize}
-          onViewPdf={() => setIsPdfSheetOpen(true)}
-        />
-
-        <div className="flex-1 overflow-hidden relative">
-          <ChatArea
-            messages={displayMessages}
-            paperTitle={paper.title}
-            paperPdfUrl={paper.pdfUrl || paper.htmlUrl || ""}
-            isStreaming={isStreaming}
-            streamingState={streamingState}
-            onMessageLike={handleMessageLike}
-            onMessageFeedback={handleMessageFeedback}
+        {/* SidebarInset pattern: m-2 ml-0 rounded-xl shadow-sm */}
+        <div className="flex-1 m-2 ml-0 bg-background rounded-xl shadow-sm flex flex-col overflow-hidden min-h-0">
+          <ChatHeader
+            title={activeConversation?.title || paper.title}
+            pdfUrl={paper.pdfUrl || paper.htmlUrl || ""}
+            onBack={handleBack}
+            onSummarize={handleSummarize}
+            onViewPdf={() => setIsPdfSheetOpen(true)}
           />
-
-          <ChatInput
-            onSendMessage={handleSendMessage}
-            disabled={isStreaming || !activeSessionId}
-            config={chatConfig}
-            onConfigChange={setChatConfig}
-            useWebSearch={useWebSearch}
-            onWebSearchToggle={() => setUseWebSearch(!useWebSearch)}
-          />
+          <div className="flex-1 overflow-hidden relative min-h-0">
+            <ChatArea
+              messages={displayMessages}
+              paperTitle={paper.title}
+              paperPdfUrl={paper.pdfUrl || paper.htmlUrl || ""}
+              isStreaming={isStreaming}
+              streamingState={streamingState}
+              onMessageLike={handleMessageLike}
+              onMessageFeedback={handleMessageFeedback}
+            />
+            <ChatInput
+              onSendMessage={handleSendMessage}
+              disabled={isStreaming || !activeSessionId}
+              config={chatConfig}
+              onConfigChange={setChatConfig}
+              useWebSearch={useWebSearch}
+              onWebSearchToggle={() => setUseWebSearch(!useWebSearch)}
+            />
+          </div>
         </div>
       </div>
-
-      {/* Global overlay during resize to prevent iframes from capturing mouse events */}
-      {isResizing && <div className="fixed inset-0 z-50 cursor-ew-resize" />}
 
       {/* PDF Sheet */}
       <div
@@ -899,38 +941,18 @@ export default function ChatScreen() {
         />
 
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-end p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            {/* <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-chip-coral" />
-              <h2 className="font-semibold text-base">PDF Viewer</h2>
-            </div> */}
-            <div className="flex items-center gap-2">
-              <a
-                href={paper.pdfUrl || paper.htmlUrl || ""}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button variant="ghost" size="sm">
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Open Full PDF
-                </Button>
-              </a>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsPdfSheetOpen(false)}
-                aria-label="Close PDF viewer"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
+          <div className="flex items-center justify-end p-3 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsPdfSheetOpen(false)}
+              aria-label="Close PDF viewer"
+            >
+              <X className="w-5 h-5" />
+            </Button>
           </div>
-          <div className="flex-1 bg-background overflow-auto">
-            <iframe
-              src={paper.pdfUrl || paper.htmlUrl || ""}
-              className="w-full h-full border-0"
-              title="PDF Viewer"
-            />
+          <div className="flex-1 overflow-hidden">
+            <PdfViewer url={paper.pdfUrl || paper.htmlUrl || ""} />
           </div>
         </div>
       </div>

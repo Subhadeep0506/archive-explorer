@@ -1,14 +1,11 @@
-import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Info } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -30,8 +27,6 @@ export function StreamingResponse({
   content,
   metadata,
 }: StreamingResponseProps) {
-  const [showTokens, setShowTokens] = useState(false);
-
   return (
     <Card className="border-chip-violet/20">
       <CardContent className="pt-6">
@@ -129,54 +124,48 @@ export function StreamingResponse({
         {/* Token count display */}
         {metadata && (
           <div className="mt-4 flex justify-end">
-            <TooltipProvider>
-              <Tooltip open={showTokens} onOpenChange={setShowTokens}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-2"
-                    onMouseEnter={() => setShowTokens(true)}
-                    onMouseLeave={() => setShowTokens(false)}
-                  >
-                    <Info className="w-4 h-4" />
-                    Token Usage
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="space-y-2">
-                  <div className="space-y-1">
-                    {metadata.prompt_tokens !== undefined && (
-                      <div className="flex justify-between gap-4 text-xs">
-                        <span className="text-muted-foreground">
-                          Prompt tokens:
-                        </span>
-                        <Badge variant="secondary" className="text-xs">
-                          {metadata.prompt_tokens.toLocaleString()}
-                        </Badge>
-                      </div>
-                    )}
-                    {metadata.completion_tokens !== undefined && (
-                      <div className="flex justify-between gap-4 text-xs">
-                        <span className="text-muted-foreground">
-                          Completion tokens:
-                        </span>
-                        <Badge variant="secondary" className="text-xs">
-                          {metadata.completion_tokens.toLocaleString()}
-                        </Badge>
-                      </div>
-                    )}
-                    {metadata.total_tokens !== undefined && (
-                      <div className="flex justify-between gap-4 text-xs font-medium pt-1 border-t">
-                        <span>Total:</span>
-                        <Badge variant="default" className="text-xs">
-                          {metadata.total_tokens.toLocaleString()}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Info className="w-4 h-4" />
+                  Token Usage
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="end" className="w-64">
+                <div className="space-y-2">
+                  {metadata.prompt_tokens !== undefined && (
+                    <div className="flex items-center justify-between gap-8">
+                      <span className="text-xs text-muted-foreground">
+                        Prompt tokens
+                      </span>
+                      <span className="text-sm font-semibold font-mono">
+                        {metadata.prompt_tokens.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {metadata.completion_tokens !== undefined && (
+                    <div className="flex items-center justify-between gap-8">
+                      <span className="text-xs text-muted-foreground">
+                        Completion tokens
+                      </span>
+                      <span className="text-sm font-semibold font-mono">
+                        {metadata.completion_tokens.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {metadata.total_tokens !== undefined && (
+                    <div className="flex items-center justify-between gap-8 border-t border-border pt-2">
+                      <span className="text-xs text-muted-foreground">
+                        Total tokens
+                      </span>
+                      <span className="text-sm font-semibold font-mono">
+                        {metadata.total_tokens.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         )}
       </CardContent>

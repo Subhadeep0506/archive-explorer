@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import {
   FileText,
   Globe,
-  Github,
+  Code,
   Sparkles,
   BookmarkPlus,
   Loader2,
@@ -191,7 +191,7 @@ export function PapersTable({
                           variant="outline"
                           className="cursor-pointer bg-chip-emerald-bg text-chip-emerald border-chip-emerald/30 hover:bg-chip-emerald hover:text-white transition-colors"
                         >
-                          <Github className="w-3 h-3 mr-1" />
+                          <Code className="w-3 h-3 mr-1" />
                           Code
                         </Badge>
                       </a>

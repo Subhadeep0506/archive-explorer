@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,11 +46,10 @@ export default function Settings() {
   const {
     settings,
     services,
+    resources,
     isLoading,
     refreshSettings,
-    updateSettingsCache,
   } = useUserData();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -66,6 +65,13 @@ export default function Settings() {
     null,
   );
   const [newApiKey, setNewApiKey] = useState("");
+
+  // Always fetch fresh settings when this page mounts so stale localStorage
+  // cache (which may predate fields like summary_model/usability_model) is
+  // replaced with the latest server data.
+  useEffect(() => {
+    refreshSettings();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize API keys from settings
   useEffect(() => {
@@ -97,10 +103,9 @@ export default function Settings() {
   const updateMutation = useMutation({
     mutationFn: (data: UserSettingsUpdate) =>
       updateUserSettings(data, accessToken),
-    onSuccess: (data) => {
-      // Update both the cache and invalidate queries
-      updateSettingsCache(data);
-      queryClient.invalidateQueries({ queryKey: ["userSettings"] });
+    onSuccess: async () => {
+      // Fetch fresh data from server to guarantee UI reflects what was saved
+      await refreshSettings();
       setIsEditing(false);
       setFormData({});
       setLocationReadonly(true);
@@ -114,9 +119,17 @@ export default function Settings() {
   });
 
   const handleSave = () => {
+    // Merge formData over current settings so unchanged fields are still sent.
+    // This prevents a partial PUT from resetting fields the user didn't touch.
     const dataToSave: UserSettingsUpdate = {
-      ...formData,
-      api_keys_encrypted: apiKeys, // Send empty array to clear keys, not undefined
+      location: formData.location ?? settings?.location,
+      custom_summary_instructions:
+        formData.custom_summary_instructions ?? settings?.custom_summary_instructions,
+      usability_analysis_instructions:
+        formData.usability_analysis_instructions ?? settings?.usability_analysis_instructions,
+      summary_model: formData.summary_model ?? settings?.summary_model,
+      usability_model: formData.usability_model ?? settings?.usability_model,
+      api_keys_encrypted: apiKeys,
     };
 
     updateMutation.mutate(dataToSave);
@@ -194,6 +207,34 @@ export default function Settings() {
   const maskApiKey = (key: string) => {
     // API keys are encrypted, so just show a secure representation
     return "••••••••••••••••••••••••";
+  };
+
+  // Filter resources to models available for the user's configured API keys (same as ChatConfigPopover)
+  const userApiKeyServices = useMemo(() => {
+    if (!settings?.api_keys_encrypted) return new Set<string>();
+    return new Set(settings.api_keys_encrypted.map((key) => key.slug));
+  }, [settings]);
+
+  const availableModels = useMemo(() => {
+    if (!resources || resources.length === 0) return [];
+    return resources
+      .filter((r) => (r.service_slug ? userApiKeyServices.has(r.service_slug) : true))
+      .map((r) => ({
+        value: r.service_slug ? `${r.service_slug}/${r.slug}` : r.slug,
+        label: r.name,
+        provider: r.service_name || "Unknown",
+        slug: r.slug,
+      }));
+  }, [resources, userApiKeyServices]);
+
+  // Look up model info from ALL resources (ignoring API key filter) so we can
+  // display a saved model even when its API key is no longer configured.
+  const findModelInfo = (modelSlug: string | undefined | null) => {
+    if (!modelSlug || !resources) return null;
+    return resources.find((r) => {
+      const value = r.service_slug ? `${r.service_slug}/${r.slug}` : r.slug;
+      return value === modelSlug;
+    });
   };
 
   // Group services by type
@@ -359,6 +400,156 @@ export default function Settings() {
                   </p>
                 </div>
               )}
+
+              {/* Model Preferences */}
+              <div className="pt-6 border-t space-y-4">
+                <div>
+                  <h3 className="text-base font-medium mb-1">Model Preferences</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Choose which LLM to use for each generation task. Requires the corresponding provider API key to be set.
+                  </p>
+                </div>
+
+                {/* Summary Model */}
+                <div>
+                  <Label htmlFor="summary-model">Paper Summary Model</Label>
+                  {isEditing ? (
+                    availableModels.length === 0 ? (
+                      <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground mt-1">
+                        No models available. Please add API keys first.
+                      </div>
+                    ) : (
+                      <Select
+                        value={formData.summary_model ?? settings?.summary_model ?? "__default__"}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            summary_model: value === "__default__" ? undefined : value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger id="summary-model" className="mt-1 h-auto">
+                          <SelectValue>
+                            {(() => {
+                              const current = formData.summary_model ?? settings?.summary_model;
+                              if (!current) return <span className="text-muted-foreground text-sm">Default (groq/qwen3-32b)</span>;
+                              const selected = availableModels.find((m) => m.value === current);
+                              if (selected) return (
+                                <div className="flex flex-col items-start py-0.5">
+                                  <span className="font-medium text-sm">{selected.label}</span>
+                                  <span className="text-xs text-muted-foreground">{selected.provider} · {selected.slug}</span>
+                                </div>
+                              );
+                              const info = findModelInfo(current);
+                              return (
+                                <div className="flex flex-col items-start py-0.5">
+                                  <span className="font-medium text-sm">{info?.name ?? current}</span>
+                                  {info && <span className="text-xs text-muted-foreground">{info.service_name ?? ""} · {info.slug}</span>}
+                                </div>
+                              );
+                            })()}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__default__" className="h-auto py-2">
+                            <div className="flex flex-col items-start">
+                              <span className="font-medium">Default</span>
+                              <span className="text-xs text-muted-foreground">groq · qwen3-32b</span>
+                            </div>
+                          </SelectItem>
+                          {availableModels.map((model) => (
+                            <SelectItem key={model.value} value={model.value} className="h-auto py-2">
+                              <div className="flex flex-col items-start">
+                                <span className="font-medium">{model.label}</span>
+                                <span className="text-xs text-muted-foreground">{model.provider} · {model.slug}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )
+                  ) : (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {(() => {
+                        const slug = settings?.summary_model;
+                        if (!slug) return "Default (groq/qwen3-32b)";
+                        const info = findModelInfo(slug);
+                        return info ? `${info.name} · ${info.slug}` : slug;
+                      })()}
+                    </p>
+                  )}
+                </div>
+
+                {/* Usability Model */}
+                <div>
+                  <Label htmlFor="usability-model">Usability Analysis Model</Label>
+                  {isEditing ? (
+                    availableModels.length === 0 ? (
+                      <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground mt-1">
+                        No models available. Please add API keys first.
+                      </div>
+                    ) : (
+                      <Select
+                        value={formData.usability_model ?? settings?.usability_model ?? "__default__"}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            usability_model: value === "__default__" ? undefined : value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger id="usability-model" className="mt-1 h-auto">
+                          <SelectValue>
+                            {(() => {
+                              const current = formData.usability_model ?? settings?.usability_model;
+                              if (!current) return <span className="text-muted-foreground text-sm">Default (groq/qwen3-32b)</span>;
+                              const selected = availableModels.find((m) => m.value === current);
+                              if (selected) return (
+                                <div className="flex flex-col items-start py-0.5">
+                                  <span className="font-medium text-sm">{selected.label}</span>
+                                  <span className="text-xs text-muted-foreground">{selected.provider} · {selected.slug}</span>
+                                </div>
+                              );
+                              const info = findModelInfo(current);
+                              return (
+                                <div className="flex flex-col items-start py-0.5">
+                                  <span className="font-medium text-sm">{info?.name ?? current}</span>
+                                  {info && <span className="text-xs text-muted-foreground">{info.service_name ?? ""} · {info.slug}</span>}
+                                </div>
+                              );
+                            })()}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__default__" className="h-auto py-2">
+                            <div className="flex flex-col items-start">
+                              <span className="font-medium">Default</span>
+                              <span className="text-xs text-muted-foreground">groq · qwen3-32b</span>
+                            </div>
+                          </SelectItem>
+                          {availableModels.map((model) => (
+                            <SelectItem key={model.value} value={model.value} className="h-auto py-2">
+                              <div className="flex flex-col items-start">
+                                <span className="font-medium">{model.label}</span>
+                                <span className="text-xs text-muted-foreground">{model.provider} · {model.slug}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )
+                  ) : (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {(() => {
+                        const slug = settings?.usability_model;
+                        if (!slug) return "Default (groq/qwen3-32b)";
+                        const info = findModelInfo(slug);
+                        return info ? `${info.name} · ${info.slug}` : slug;
+                      })()}
+                    </p>
+                  )}
+                </div>
+              </div>
 
               {/* API Keys Section */}
               <div className="pt-6 border-t">

@@ -28,9 +28,10 @@ function FilterSection({
 
   return (
     <div className="border-b border-border/50 pb-4">
-      <button
+      <Button
+        variant="ghost"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full py-2 text-sm font-semibold text-foreground hover:text-primary transition-colors"
+        className="flex items-center justify-between w-full py-2 text-sm font-semibold text-foreground hover:text-primary transition-colors p-0 h-auto"
       >
         <span>{title}</span>
         {isOpen ? (
@@ -38,7 +39,7 @@ function FilterSection({
         ) : (
           <ChevronRight className="w-4 h-4" />
         )}
-      </button>
+      </Button>
       <div
         className={cn(
           "flex flex-wrap gap-2 overflow-hidden transition-all duration-300",
@@ -108,7 +109,7 @@ export function FilterSidebar({
   };
 
   return (
-    <aside className="w-72 flex-shrink-0 border-r bg-sidebar p-5 h-full overflow-hidden">
+    <aside className="w-72 shrink-0 border-r bg-sidebar p-5 h-full overflow-hidden">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-lg font-bold">Filters</h2>
         {hasActiveFilters && (

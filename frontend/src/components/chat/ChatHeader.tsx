@@ -17,7 +17,7 @@ export function ChatHeader({
   onViewPdf,
 }: ChatHeaderProps) {
   return (
-    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-3">
+    <header className="shrink-0 px-4 py-3 border-b border-border/50">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <Button

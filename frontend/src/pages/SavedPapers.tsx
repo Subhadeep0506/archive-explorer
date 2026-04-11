@@ -43,7 +43,7 @@ import {
   ArrowLeft,
   FileText,
   Globe,
-  Github,
+  Code,
   Trash2,
   ExternalLink,
   Loader2,
@@ -418,10 +418,10 @@ export default function SavedPapers() {
 
         {/* Search and Filters */}
         <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <CardContent className="pt-1">
+            <div className="flex flex-wrap gap-3">
               {/* Search */}
-              <div className="space-y-2">
+              <div className="space-y-2 flex-1 min-w-48">
                 <Label htmlFor="search">Search</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -436,7 +436,7 @@ export default function SavedPapers() {
               </div>
 
               {/* Topics Filter */}
-              <div className="space-y-2">
+              <div className="space-y-2 w-48">
                 <Label>Topics</Label>
                 <Select
                   value=""
@@ -481,7 +481,7 @@ export default function SavedPapers() {
               </div>
 
               {/* Years Filter */}
-              <div className="space-y-2">
+              <div className="space-y-2 w-36">
                 <Label>Years</Label>
                 <Select
                   value=""
@@ -522,7 +522,7 @@ export default function SavedPapers() {
               </div>
 
               {/* Sort */}
-              <div className="space-y-2">
+              <div className="space-y-2 w-52">
                 <Label>Sort by</Label>
                 <Select
                   value={`${sortBy}-${sortOrder}`}
@@ -792,7 +792,7 @@ export default function SavedPapers() {
                                 variant="outline"
                                 className="cursor-pointer bg-chip-emerald-bg text-chip-emerald border-chip-emerald/30 hover:bg-chip-emerald hover:text-white transition-colors"
                               >
-                                <Github className="w-3 h-3 mr-1" />
+                                <Code className="w-3 h-3 mr-1" />
                                 Code
                               </Badge>
                             </a>

@@ -165,7 +165,7 @@ export default function Profile() {
                 </Avatar>
                 {isEditing && (
                   <div>
-                    <Label htmlFor="avatar-upload" className="cursor-pointer">
+                    <Label htmlFor="avatar-upload" className="cursor-pointer normal-case tracking-normal text-sm font-normal text-foreground mb-0">
                       <div className="flex items-center space-x-2 px-4 py-2 border rounded-md hover:bg-muted">
                         <Upload className="h-4 w-4" />
                         <span>Upload Avatar</span>

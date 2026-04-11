@@ -64,7 +64,7 @@ export function ChatInput({
   return (
     <div className="absolute bottom-0 left-0 right-0 m-4 pointer-events-none">
       {/* Gradient fade at top */}
-      <div className="absolute bottom-full left-4 right-4 h-24 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+      <div className="absolute bottom-full left-4 right-4 h-24 bg-linear-to-t from-background to-transparent pointer-events-none" />
 
       <form
         onSubmit={handleSubmit}
@@ -103,18 +103,17 @@ export function ChatInput({
                   disabled={disabled}
                   className="scale-90 data-[state=checked]:bg-green-600 data-[state=checked]:hover:bg-green-700"
                 />
-                <Label htmlFor="web-search" className="cursor-pointer">
-                  <Badge
-                    variant={useWebSearch ? "default" : "secondary"}
-                    className={cn(
-                      "px-[0.25rem] text-xs cursor-pointer",
-                      useWebSearch && "bg-green-600 hover:bg-green-700",
-                    )}
-                  >
-                    <Globe className="h-4 w-4 mr-1" />{" "}
-                    {useWebSearch ? "Web Search On" : "Web Search Off"}
-                  </Badge>
-                </Label>
+                <Badge
+                  variant={useWebSearch ? "default" : "secondary"}
+                  className={cn(
+                    "px-1 text-xs cursor-pointer",
+                    useWebSearch && "bg-green-600 hover:bg-green-700",
+                  )}
+                  onClick={onWebSearchToggle}
+                >
+                  <Globe className="h-4 w-4 mr-1" />{" "}
+                  {useWebSearch ? "Web Search On" : "Web Search Off"}
+                </Badge>
               </div>
               <Badge variant="default" className="text-xs">
                 {config.modelProvider && config.modelSlug

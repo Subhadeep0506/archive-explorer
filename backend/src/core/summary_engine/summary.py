@@ -15,9 +15,14 @@ logger = SingletonLogger().get_logger()
 class SummaryEngine:
     """SummaryEngine class for generating summaries of papers."""
 
+    DEFAULT_MODEL = "groq/qwen3-32b"
+
     @staticmethod
     async def generate_paper_summary(
-        arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None
+        arxiv_id: str = None,
+        pdf_url: str = None,
+        request: Optional[Request] = None,
+        model_name: str = None,
     ) -> str:
         try:
             embedding = EmbeddingFactory.build_embedding_model(request=request)
@@ -36,6 +41,8 @@ class SummaryEngine:
             elif pdf_url:
                 full_content = await load_pdf_content(pdf_url)
 
+            resolved_model = model_name or SummaryEngine.DEFAULT_MODEL
+
             encoding = tiktoken.get_encoding("cl100k_base")
             tokens = encoding.encode(full_content)
             token_limit = 32768
@@ -50,15 +57,15 @@ class SummaryEngine:
                     chunk_tokens = tokens[i : i + token_limit]
                     chunk_content = encoding.decode(chunk_tokens)
                     summary = await SummaryEngine.__generate_summary(
-                        chunk_content, request
+                        chunk_content, request, resolved_model
                     )
                     cumulative_summary += summary + "\n\n"
                 final_summary = await SummaryEngine.__generate_summary(
-                    cumulative_summary, request
+                    cumulative_summary, request, resolved_model
                 )
             else:
                 final_summary = await SummaryEngine.__generate_summary(
-                    full_content, request
+                    full_content, request, resolved_model
                 )
             return final_summary
         except Exception as e:
@@ -67,12 +74,12 @@ class SummaryEngine:
 
     @classmethod
     async def __generate_summary(
-        cls, content: str, request: Optional[Request] = None
+        cls, content: str, request: Optional[Request] = None, model_name: str = None
     ) -> str:
         """Generate a summary of the given content."""
         try:
             llm = LLMFactory.build_llm(
-                model_name="groq/qwen3-32b",
+                model_name=model_name or SummaryEngine.DEFAULT_MODEL,
                 max_tokens=4096,
                 reasoning="hidden",
                 request=request,

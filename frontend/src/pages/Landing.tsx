@@ -13,21 +13,21 @@ import { useAuth } from "@/context/AuthContext";
 
 const featureCards = [
   {
-    title: "Curated arXiv streams",
+    title: "Intelligent paper discovery",
     description:
-      "Follow the domains that matter. Blend CS, physics, stats, and more into one living feed.",
+      "Subscribe to cross-domain feeds spanning CS, physics, mathematics, and beyond. New submissions surface automatically, ranked by relevance to your research profile.",
     icon: Globe,
   },
   {
-    title: "AI-native workspace",
+    title: "AI-accelerated comprehension",
     description:
-      "Distill papers into talking points, citations, and action items in seconds.",
+      "Generate structured summaries, extract key contributions, and surface related work — without opening a single PDF manually.",
     icon: Sparkles,
   },
   {
-    title: "Private research vault",
+    title: "Secure personal library",
     description:
-      "Your sessions, preferences, and uploads stay encrypted inside your personal vault.",
+      "Annotations, conversation history, and uploaded manuscripts are stored privately and tied exclusively to your account.",
     icon: ShieldCheck,
   },
 ];
@@ -95,27 +95,27 @@ export default function Landing() {
           <div className="grid gap-12 lg:grid-cols-[1.15fr_0.85fr] items-center">
             <div className="space-y-8">
               <h2 className="font-display text-4xl md:text-6xl leading-tight text-balance">
-                A calmer way to keep up with the arXiv firehose.
+                Stay at the frontier without drowning in it.
               </h2>
               <p className="text-lg text-white/80 max-w-2xl">
-                The Arxplorer threads together discovery, triage, and deep work.
-                Stream the latest submissions, save curated threads, and chat
-                with papers through your AI co-pilot.
+                Arxplorer unifies paper discovery, structured summarisation, and
+                document-grounded Q&amp;A into a single research environment —
+                so you spend less time triaging and more time thinking.
               </p>
               <div className="flex flex-wrap gap-4">
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-4">
                   <p className="text-xs uppercase tracking-[0.3em] text-white/60">
-                    Feeds
+                    Coverage
                   </p>
-                  <p className="text-3xl font-semibold">40k+</p>
-                  <p className="text-sm text-white/70">papers parsed monthly</p>
+                  <p className="text-3xl font-semibold">1k+</p>
+                  <p className="text-sm text-white/70">papers indexed monthly</p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-4">
                   <p className="text-xs uppercase tracking-[0.3em] text-white/60">
-                    Focus mode
+                    Time to insight
                   </p>
-                  <p className="text-3xl font-semibold">12 min</p>
-                  <p className="text-sm text-white/70">average summary time</p>
+                  <p className="text-3xl font-semibold">&lt; 30 s</p>
+                  <p className="text-sm text-white/70">per structured summary</p>
                 </div>
               </div>
             </div>
@@ -131,11 +131,11 @@ export default function Landing() {
 
           <section id="features" className="mt-24 space-y-8">
             <div className="flex items-center gap-4">
-              <span className="h-px flex-1 bg-gradient-to-r from-white/40 to-transparent" />
+              <span className="h-px flex-1 bg-linear-to-r from-white/40 to-transparent" />
               <p className="text-xs uppercase tracking-[0.4em] text-white/60">
-                Built for research leaders
+                Designed for rigorous research
               </p>
-              <span className="h-px flex-1 bg-gradient-to-l from-white/40 to-transparent" />
+              <span className="h-px flex-1 bg-linear-to-l from-white/40 to-transparent" />
             </div>
             <div className="grid gap-6 md:grid-cols-3">
               {featureCards.map(({ title, description, icon: Icon }) => (

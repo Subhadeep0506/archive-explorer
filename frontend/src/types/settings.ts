@@ -11,6 +11,8 @@ export interface UserSettings {
     location?: string;
     custom_summary_instructions?: string;
     usability_analysis_instructions?: string;
+    summary_model?: string;
+    usability_model?: string;
     api_keys_encrypted?: ApiKeyItem[];
 }
 
@@ -18,6 +20,8 @@ export interface UserSettingsUpdate {
     location?: string;
     custom_summary_instructions?: string;
     usability_analysis_instructions?: string;
+    summary_model?: string;
+    usability_model?: string;
     api_keys_encrypted?: ApiKeyItem[];
 }
 

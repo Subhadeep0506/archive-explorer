@@ -10,6 +10,9 @@ import {
   Database,
   Brain,
   FileText,
+  Globe,
+  BarChart2,
+  ListOrdered,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -19,10 +22,26 @@ interface StreamingUpdateProps {
   isLast?: boolean;
 }
 
+
 // Helper to trim text
 function trimText(text: string, maxLength = 40): string {
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + "...";
+}
+
+function SectionHeading({
+  icon: Icon,
+  label,
+}: {
+  icon: React.ElementType;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-1 font-medium text-[10px] mb-1.5 text-muted-foreground">
+      <Icon className="w-3 h-3 shrink-0" />
+      {label}
+    </div>
+  );
 }
 
 // Helper to parse and display node data
@@ -30,6 +49,69 @@ function formatNodeData(data: unknown): JSX.Element | null {
   if (!data || typeof data !== "object") return null;
 
   const dataObj = data as Record<string, unknown>;
+
+  // Handle reranked docs FIRST — its payload also contains retrieved_docs,
+  // so this check must come before the plain retrieved_docs check.
+  if (
+    "doc_relevance_scores" in dataObj &&
+    Array.isArray(dataObj.doc_relevance_scores)
+  ) {
+    const scores = dataObj.doc_relevance_scores as number[];
+    const docs =
+      (dataObj.retrieved_docs as Array<{
+        metadata?: Record<string, unknown>;
+      }>) || [];
+
+    return (
+      <div>
+        <SectionHeading icon={ListOrdered} label="Reranked Documents" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+          {scores.map((score: number, idx: number) => {
+            const doc = docs[idx];
+            const metadata = doc?.metadata as
+              | Record<string, unknown>
+              | undefined;
+            return (
+              <div
+                key={idx}
+                className="bg-muted/40 rounded border border-border/50 p-1.5 space-y-1"
+              >
+                <div className="flex items-start justify-between gap-1.5">
+                  <div className="font-medium text-foreground text-[10px] flex-1 leading-tight">
+                    {metadata?.title
+                      ? trimText(String(metadata.title), 50)
+                      : "Untitled"}
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className="text-[9px] px-1 py-0 h-4 shrink-0"
+                  >
+                    Rank {idx + 1}
+                  </Badge>
+                </div>
+                {metadata?.page !== undefined && (
+                  <div className="text-[10px] text-muted-foreground">
+                    Page {Number(metadata.page) + 1}
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <div className="flex-1 bg-muted rounded-full h-1 overflow-hidden">
+                    <div
+                      className="bg-foreground h-full transition-all"
+                      style={{ width: `${score * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-muted-foreground text-[9px] w-8 text-right">
+                    {(score * 100).toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   // Handle retrieved docs - show in grid
   if ("retrieved_docs" in dataObj && Array.isArray(dataObj.retrieved_docs)) {
@@ -39,9 +121,10 @@ function formatNodeData(data: unknown): JSX.Element | null {
     }>;
     return (
       <div>
-        <div className="font-medium text-[10px] mb-1.5">
-          📄 Retrieved Documents ({docs.length})
-        </div>
+        <SectionHeading
+          icon={FileText}
+          label={`Retrieved Documents (${docs.length})`}
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
           {docs.map((doc, idx: number) => {
             const metadata = doc.metadata as
@@ -83,70 +166,6 @@ function formatNodeData(data: unknown): JSX.Element | null {
     );
   }
 
-  // Handle doc relevance scores with reranked docs - show in grid
-  if (
-    "doc_relevance_scores" in dataObj &&
-    Array.isArray(dataObj.doc_relevance_scores)
-  ) {
-    const scores = dataObj.doc_relevance_scores as number[];
-    const docs =
-      (dataObj.retrieved_docs as Array<{
-        metadata?: Record<string, unknown>;
-      }>) || [];
-
-    return (
-      <div>
-        <div className="font-medium text-[10px] mb-1.5">
-          🎯 Reranked Documents
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-          {scores.map((score: number, idx: number) => {
-            const doc = docs[idx];
-            const metadata = doc?.metadata as
-              | Record<string, unknown>
-              | undefined;
-            return (
-              <div
-                key={idx}
-                className="bg-muted/40 rounded border border-border/50 p-1.5 space-y-1"
-              >
-                <div className="flex items-start justify-between gap-1.5">
-                  <div className="font-medium text-foreground text-[10px] flex-1 leading-tight">
-                    {metadata?.title
-                      ? trimText(String(metadata.title), 50)
-                      : "Untitled"}
-                  </div>
-                  <Badge
-                    variant="secondary"
-                    className="text-[9px] px-1 py-0 h-4 shrink-0 bg-chip-violet/20 text-chip-violet"
-                  >
-                    Rank {idx + 1}
-                  </Badge>
-                </div>
-                {metadata?.page !== undefined && (
-                  <div className="text-[10px] text-muted-foreground">
-                    Page {Number(metadata.page) + 1}
-                  </div>
-                )}
-                <div className="flex items-center gap-1.5">
-                  <div className="flex-1 bg-muted rounded-full h-1 overflow-hidden">
-                    <div
-                      className="bg-chip-violet h-full transition-all"
-                      style={{ width: `${score * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-muted-foreground text-[9px] w-8 text-right">
-                    {(score * 100).toFixed(0)}%
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
   // Handle web search results - show as clickable cards in grid
   if (
     "web_search_results" in dataObj &&
@@ -166,9 +185,10 @@ function formatNodeData(data: unknown): JSX.Element | null {
 
     return (
       <div>
-        <div className="font-medium text-[10px] mb-1.5">
-          🌐 Web Search Results ({results.length})
-        </div>
+        <SectionHeading
+          icon={Globe}
+          label={`Web Search Results (${results.length})`}
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {results.map((result, idx: number) => {
             const meta = result.metadata;
@@ -183,15 +203,13 @@ function formatNodeData(data: unknown): JSX.Element | null {
                 className="group bg-muted/40 rounded-lg border border-border/50 p-2.5 hover:border-chip-violet/50 hover:bg-muted/60 transition-all overflow-hidden"
               >
                 <div className="flex gap-2">
-                  {/* Image thumbnail */}
                   {meta.image && (
-                    <div className="flex-shrink-0 w-16 h-16 rounded overflow-hidden bg-muted">
+                    <div className="shrink-0 w-16 h-16 rounded overflow-hidden bg-muted">
                       <img
                         src={meta.image}
                         alt={meta.title || "Search result"}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          // Hide image if it fails to load
                           (e.target as HTMLElement).style.display = "none";
                         }}
                       />
@@ -199,13 +217,12 @@ function formatNodeData(data: unknown): JSX.Element | null {
                   )}
 
                   <div className="flex-1 min-w-0">
-                    {/* Site info */}
                     <div className="flex items-center gap-1.5 mb-1">
                       {meta.favicon && (
                         <img
                           src={meta.favicon}
                           alt=""
-                          className="w-3 h-3 flex-shrink-0"
+                          className="w-3 h-3 shrink-0"
                           onError={(e) => {
                             (e.target as HTMLElement).style.display = "none";
                           }}
@@ -216,17 +233,15 @@ function formatNodeData(data: unknown): JSX.Element | null {
                           {meta.sitename}
                         </span>
                       )}
-                      <ExternalLink className="w-2.5 h-2.5 ml-auto text-muted-foreground group-hover:text-chip-violet transition-colors flex-shrink-0" />
+                      <ExternalLink className="w-2.5 h-2.5 ml-auto text-muted-foreground group-hover:text-chip-violet transition-colors shrink-0" />
                     </div>
 
-                    {/* Title */}
                     {meta.title && (
                       <div className="font-medium text-foreground text-[11px] leading-tight mb-1 line-clamp-2 group-hover:text-chip-violet transition-colors">
                         {meta.title}
                       </div>
                     )}
 
-                    {/* Description */}
                     {meta.description && (
                       <div className="text-[10px] text-muted-foreground leading-snug line-clamp-2">
                         {meta.description}
@@ -242,12 +257,12 @@ function formatNodeData(data: unknown): JSX.Element | null {
     );
   }
 
-  // Handle response metadata - show as a table
+  // Handle response metadata - token usage table
   if ("response_metadata" in dataObj) {
     const metadata = dataObj.response_metadata as Record<string, unknown>;
     return (
       <div>
-        <div className="font-medium text-[10px] mb-1.5">📊 Token Usage</div>
+        <SectionHeading icon={BarChart2} label="Token Usage" />
         <div className="border border-border rounded overflow-hidden">
           <table className="w-full text-[10px]">
             <thead className="bg-muted/50">
@@ -318,7 +333,6 @@ export function StreamingUpdate({
       : null;
 
   const hasVisibleData = node.data && formatNodeData(node.data) !== null;
-  const hasContent = node.messages.length > 0 || hasVisibleData;
 
   const stepIcons: Record<string, React.ElementType> = {
     search: Search,
@@ -332,32 +346,26 @@ export function StreamingUpdate({
 
     if (status === "done") {
       return (
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-background">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-chip-violet/15">
-            <Check className="h-3.5 w-3.5 text-chip-violet" />
-          </div>
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
+          <Check className="h-3.5 w-3.5 text-foreground" />
         </div>
       );
     }
 
     if (status === "active") {
       return (
-        <div className="relative flex h-7 w-7 items-center justify-center">
-          <div className="absolute inset-0 rounded-full bg-chip-violet/20 animate-pulse" />
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-background">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-chip-violet/15">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-chip-violet" />
-            </div>
+        <div className="relative flex h-7 w-7 shrink-0 items-center justify-center">
+          <div className="absolute inset-0 rounded-full bg-muted animate-pulse" />
+          <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-muted">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-foreground" />
           </div>
         </div>
       );
     }
 
     return (
-      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-background">
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary">
-          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-        </div>
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
     );
   }
@@ -369,62 +377,58 @@ export function StreamingUpdate({
       : "pending";
 
   return (
-    <div className="relative">
-      {!isLast && (
-        <div
-          className="absolute left-[13px] top-[14px] w-px bg-chip-violet/30"
-          style={{ height: `calc(100% - 14px)` }}
-        />
-      )}
+    <div className="flex items-start gap-3">
+      {/* Icon column — self-stretch so the line div fills the full content height */}
+      <div className="flex flex-col items-center self-stretch shrink-0">
+        <StepIcon status={status} />
+        {!isLast && (
+          <div className="w-px flex-1 mt-1 bg-border" />
+        )}
+      </div>
 
-      <div className="relative flex items-start gap-3">
-        <div className="relative">
-          <StepIcon status={status} />
-        </div>
+      <div className={!isLast ? "pb-5" : "pt-1"}>
+        {status !== "done" && (
+          <div
+            className={`text-sm font-medium leading-none ${
+              status === "active" ? "text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            {node.displayName}
+          </div>
+        )}
+        {node.messages.length > 0 &&
+          (status !== "pending" || node.type === "custom") && (
+            <div className="mt-1 text-xs text-muted-foreground">
+              {node.messages.map((m, i) => (
+                <div key={i}>{m}</div>
+              ))}
+            </div>
+          )}
 
-        <div className={!isLast ? "pb-5" : "pt-1"}>
-          {status !== "done" && (
-            <div
-              className={`text-sm font-medium leading-none ${status === "active" ? "text-chip-violet" : "text-muted-foreground"}`}
+        {status === "done" && timeTaken && (
+          <span className="mt-1 inline-block font-mono text-[10px] text-muted-foreground">
+            {timeTaken}s
+          </span>
+        )}
+
+        {hasVisibleData && status !== "pending" && (
+          <div className="mt-2">
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              {node.displayName}
-            </div>
-          )}
-          {node.messages.length > 0 &&
-            (status !== "pending" || node.type === "custom") && (
-              <div className="mt-1 text-xs text-muted-foreground">
-                {node.messages.map((m, i) => (
-                  <div key={i}>{m}</div>
-                ))}
-              </div>
-            )}
-
-          {status === "done" && timeTaken && (
-            <span className="mt-1 inline-block font-mono text-[10px] text-muted-foreground">
-              {timeTaken}s
-            </span>
-          )}
-
-          {/* Expandable data section */}
-          {hasVisibleData && status !== "pending" && (
-            <div className="mt-2">
-              <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {isOpen ? (
-                  <ChevronDown className="w-3 h-3" />
-                ) : (
-                  <ChevronRight className="w-3 h-3" />
-                )}
-                <span>Details</span>
-              </button>
-              {isOpen && (
-                <div className="mt-2">{formatNodeData(node.data)}</div>
+              {isOpen ? (
+                <ChevronDown className="w-3 h-3" />
+              ) : (
+                <ChevronRight className="w-3 h-3" />
               )}
-            </div>
-          )}
-        </div>
+              <span>Details</span>
+            </button>
+            {isOpen && (
+              <div className="mt-2">{formatNodeData(node.data)}</div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

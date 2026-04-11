@@ -155,7 +155,11 @@ export function ChatConfigPopover({
                 </div>
               ) : (
                 <Select value={config.model} onValueChange={handleModelChange}>
-                  <SelectTrigger id="model" className="h-auto">
+                  <SelectTrigger
+                  id="model"
+                  className="h-auto w-full"
+                  style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '10px', paddingBottom: '10px' }}
+                >
                     <SelectValue>
                       {(() => {
                         const selected = availableModels.find(
@@ -163,11 +167,9 @@ export function ChatConfigPopover({
                         );
                         if (!selected) return "Select a model";
                         return (
-                          <div className="flex flex-col items-start py-[0.1rem]">
-                            <span className="font-medium">
-                              {selected.label}
-                            </span>
-                            <span className="text-[1.6vh] text-muted-foreground text-left block">
+                          <div className="flex flex-col items-start gap-0.5">
+                            <span className="font-medium">{selected.label}</span>
+                            <span className="text-xs text-muted-foreground text-left">
                               {selected.provider} · {selected.slug}
                             </span>
                           </div>
@@ -181,17 +183,17 @@ export function ChatConfigPopover({
                     align="start"
                     sideOffset={5}
                     avoidCollisions={false}
-                    className="max-h-[300px]"
+                    className="max-h-75 p-1"
                   >
                     {availableModels.map((model) => (
                       <SelectItem
                         key={model.value}
                         value={model.value}
-                        className="h-auto py-2"
+                        className="h-auto py-2 pl-2 pr-8"
                       >
-                        <div className="flex flex-col items-start">
+                        <div className="flex flex-col items-start gap-0.5">
                           <span className="font-medium">{model.label}</span>
-                          <span className="text-[1.6vh] text-muted-foreground text-left block">
+                          <span className="text-xs text-muted-foreground text-left">
                             {model.provider} · {model.slug}
                           </span>
                         </div>

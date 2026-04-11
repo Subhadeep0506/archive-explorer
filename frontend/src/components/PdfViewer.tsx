@@ -1,6 +1,6 @@
-import { useMemo } from "react";
-import { AlertCircle, Info } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PdfViewer } from "@/components/ui/pdf-viewer";
 import type { Paper } from "@/types/paper";
 
 interface PaperPdfViewerProps {
@@ -40,13 +40,7 @@ export function PaperPdfViewer({ paper, height = 700 }: PaperPdfViewerProps) {
       className="rounded-lg border bg-card overflow-hidden"
       style={{ height: height }}
     >
-      <iframe
-        src={fileUrl}
-        width="100%"
-        height="100%"
-        style={{ border: "none" }}
-        title={`PDF Viewer for ${paper.title}`}
-      />
+      <PdfViewer url={fileUrl} className="h-full" />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Search, Loader2, Upload, FileText } from "lucide-react";
+import { format } from "date-fns";
+import { Search, Loader2, Upload, FileText, CalendarIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { PaperCard } from "@/components/PaperCard";
 import { searchArxivPapers } from "@/lib/arxiv";
 import { normalizeArxivEntry } from "@/lib/papers";
@@ -45,6 +52,7 @@ export function AddPaperDialog() {
 
   // Upload form state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [publishedDate, setPublishedDate] = useState<Date | undefined>(undefined);
   const [uploadForm, setUploadForm] = useState({
     title: "",
     abstract: "",
@@ -56,6 +64,7 @@ export function AddPaperDialog() {
     date_published: "",
   });
   const [isUploading, setIsUploading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const { data: savedPapers } = useQuery({
     queryKey: ["savedPapers"],
@@ -66,6 +75,7 @@ export function AddPaperDialog() {
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
 
+    setHasSearched(true);
     setIsSearching(true);
     setCurrentStart(0);
     try {
@@ -156,6 +166,7 @@ export function AddPaperDialog() {
 
       // Reset form
       setSelectedFile(null);
+      setPublishedDate(undefined);
       setUploadForm({
         title: "",
         abstract: "",
@@ -182,7 +193,10 @@ export function AddPaperDialog() {
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col top-[8%] translate-y-0">
+      <DialogContent
+        className="max-w-4xl min-w-4xl max-h-[85vh] overflow-hidden flex flex-col top-[8%] translate-y-0"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Add Paper</DialogTitle>
         </DialogHeader>
@@ -206,7 +220,7 @@ export function AddPaperDialog() {
             value="search"
             className="flex-1 overflow-hidden flex flex-col space-y-4 mt-4"
           >
-            <div className="flex gap-2">
+            <div className="flex gap-2 m-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -236,7 +250,7 @@ export function AddPaperDialog() {
                 </div>
               ) : searchResults.length > 0 ? (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {searchResults.map((paper, index) => (
                       <PaperCard
                         key={paper.id}
@@ -266,16 +280,20 @@ export function AddPaperDialog() {
                     </div>
                   )}
                 </>
-              ) : searchQuery && !isSearching ? (
+              ) : hasSearched && !isSearching ? (
                 <div className="text-center text-muted-foreground py-8">
                   No papers found for "{searchQuery}"
+                </div>
+              ) : !hasSearched && searchQuery ? (
+                <div className="text-center text-muted-foreground py-8">
+                  Press <kbd className="rounded border px-1.5 py-0.5 text-xs font-mono">Enter</kbd> or the Search button to search
                 </div>
               ) : null}
             </div>
           </TabsContent>
 
           <TabsContent value="upload" className="flex-1 overflow-y-auto mt-4">
-            <form onSubmit={handleUploadSubmit} className="space-y-4">
+            <form onSubmit={handleUploadSubmit} className="space-y-4 m-2">
               <div className="space-y-2">
                 <Label htmlFor="pdf-file">
                   PDF File <span className="text-red-500">*</span>
@@ -291,7 +309,7 @@ export function AddPaperDialog() {
                   {selectedFile && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <FileText className="w-4 h-4" />
-                      <span className="truncate max-w-[200px]">
+                      <span className="truncate max-w-50">
                         {selectedFile.name}
                       </span>
                     </div>
@@ -365,15 +383,38 @@ export function AddPaperDialog() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="published_date">Published Date</Label>
-                  <Input
-                    id="published_date"
-                    type="date"
-                    value={uploadForm.published_date}
-                    onChange={(e) =>
-                      handleUploadFormChange("published_date", e.target.value)
-                    }
-                  />
+                  <Label>Published Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                        {publishedDate ? (
+                          format(publishedDate, "PPP")
+                        ) : (
+                          <span className="text-muted-foreground">Pick a date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={publishedDate}
+                        onSelect={(date) => {
+                          setPublishedDate(date);
+                          const formatted = date ? format(date, "yyyy-MM-dd") : "";
+                          handleUploadFormChange("published_date", formatted);
+                          handleUploadFormChange("date_published", formatted);
+                        }}
+                        captionLayout="dropdown"
+                        defaultMonth={publishedDate ?? new Date()}
+                        disabled={(date) => date > new Date()}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div className="space-y-2 md:col-span-2">

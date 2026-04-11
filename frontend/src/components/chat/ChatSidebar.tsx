@@ -32,7 +32,7 @@ export function ChatSidebar({
   isCreatingSession = false,
 }: ChatSidebarProps) {
   return (
-    <div className="w-72 min-w-0 border-r dark:border-r-zinc-800 bg-sidebar flex flex-col h-full">
+    <div className="min-w-0 bg-sidebar flex flex-col h-full w-full">
       <div className="p-3 ">
         <Button
           onClick={onNewChat}

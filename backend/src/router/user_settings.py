@@ -45,7 +45,9 @@ async def get_user_settings(
         "location": settings.location,
         "custom_summary_instructions": settings.custom_summary_instructions,
         "usability_analysis_instructions": settings.usability_analysis_instructions,
-        "api_keys_encrypted": settings.api_keys_encrypted,  # Return encrypted keys
+        "summary_model": settings.summary_model,
+        "usability_model": settings.usability_model,
+        "api_keys_encrypted": settings.api_keys_encrypted,
     }
 
     return response_data
@@ -72,7 +74,9 @@ async def update_user_settings(
         "location": settings.location,
         "custom_summary_instructions": settings.custom_summary_instructions,
         "usability_analysis_instructions": settings.usability_analysis_instructions,
-        "api_keys_encrypted": settings.api_keys_encrypted,  # Return encrypted keys
+        "summary_model": settings.summary_model,
+        "usability_model": settings.usability_model,
+        "api_keys_encrypted": settings.api_keys_encrypted,
     }
 
     return response_data

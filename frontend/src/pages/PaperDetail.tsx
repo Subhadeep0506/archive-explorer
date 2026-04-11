@@ -13,6 +13,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { PaperPdfViewer } from "@/components/PdfViewer";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { UsabilityChart } from "@/components/UsabilityChart";
 import {
   Calendar,
@@ -21,7 +22,7 @@ import {
   Users,
   FileText,
   Globe,
-  Github,
+  Code,
   Sparkles,
   Copy,
   ExternalLink,
@@ -83,11 +84,31 @@ export default function PaperDetail() {
     queryKey: ["savedPapers"],
     queryFn: () => getSavedPapers(accessToken),
     enabled: Boolean(accessToken),
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   });
 
-  // Fetch summary and usability data
+  // Computed before the summary query so we can gate the query on isSaved
+  const isSaved = savedPapers?.some((sp) => sp.arxiv_id === paper?.id);
+  const savedPaperData = savedPapers?.find((sp) => sp.arxiv_id === paper?.id);
+  const isIngested = savedPaperData?.ingested ?? false;
+
+  // Poll savedPapers every 3 s while this paper is saved but ingestion hasn't finished yet.
+  // Stops automatically once isIngested flips to true.
+  useEffect(() => {
+    if (!isSaved || isIngested) return;
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isSaved, isIngested, queryClient]);
+
+  // Local state for unsaved papers — results are generated but never persisted in DB,
+  // so we hold them in memory for the lifetime of this page visit.
+  const [localSummary, setLocalSummary] = useState<string | null>(null);
+  const [localUsability, setLocalUsability] = useState<import("@/types/summary").UsabilityMetrics | null>(null);
+
+  // Only query the DB for saved papers — unsaved papers have no DB record to fetch.
   const {
     data: summaryData,
     isLoading: isSummaryLoading,
@@ -95,17 +116,13 @@ export default function PaperDetail() {
   } = useQuery({
     queryKey: ["summary", id],
     queryFn: () => getSummaryAndUsability(id!, accessToken),
-    enabled: Boolean(id && accessToken && paper),
+    enabled: Boolean(id && accessToken && paper && isSaved),
     retry: false,
-    staleTime: 1000 * 60 * 15, // 15 minutes - summary/usability rarely changes
-    gcTime: 1000 * 60 * 60, // 60 minutes
+    staleTime: 1000 * 60 * 15,
+    gcTime: 1000 * 60 * 60,
     refetchOnWindowFocus: false,
-    refetchOnMount: false, // Don't refetch on component remount if data exists
+    refetchOnMount: false,
   });
-
-  const isSaved = savedPapers?.some((sp) => sp.arxiv_id === paper?.id);
-  const savedPaperData = savedPapers?.find((sp) => sp.arxiv_id === paper?.id);
-  const isIngested = savedPaperData?.ingested ?? false;
 
   const savePaperMutation = useMutation({
     mutationFn: () => savePaper(paper!, accessToken),
@@ -149,21 +166,30 @@ export default function PaperDetail() {
 
   const generateSummaryMutation = useMutation({
     mutationFn: () => {
-      // If paper is saved, use arxiv_id; otherwise use pdf_url
       if (isSaved) {
-        return generateSummaryFlexible({ arxiv_id: id }, accessToken);
+        // Always send pdf_url alongside arxiv_id so the backend can fall back to
+        // direct PDF loading without needing it stored in the DB (handles not-ingested papers).
+        return generateSummaryFlexible(
+          { arxiv_id: id, pdf_url: paper!.pdfUrl ?? undefined },
+          accessToken,
+        );
       } else {
         return generateSummaryFlexible({ pdf_url: paper!.pdfUrl }, accessToken);
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Summary generated successfully!");
-      refetchSummary();
+      if (isSaved) {
+        refetchSummary();
+      } else {
+        // Unsaved papers have no DB record — store result locally so the UI can display it.
+        setLocalSummary(data.summary);
+      }
     },
     onError: (error) => {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      const friendlyMsg = errorMsg.includes("not found")
-        ? "Paper not found. Please ensure it's saved and ingested."
+      const friendlyMsg = errorMsg.includes("no arxiv_id or pdf_url")
+        ? "No PDF URL available. Please save the paper first."
         : errorMsg.includes("timeout")
           ? "Summary generation took too long. Please try again."
           : `Failed to generate summary: ${errorMsg}`;
@@ -173,9 +199,11 @@ export default function PaperDetail() {
 
   const generateUsabilityMutation = useMutation({
     mutationFn: () => {
-      // If paper is saved, use arxiv_id; otherwise use pdf_url
       if (isSaved) {
-        return generateUsabilityFlexible({ arxiv_id: id }, accessToken);
+        return generateUsabilityFlexible(
+          { arxiv_id: id, pdf_url: paper!.pdfUrl ?? undefined },
+          accessToken,
+        );
       } else {
         return generateUsabilityFlexible(
           { pdf_url: paper!.pdfUrl },
@@ -183,14 +211,23 @@ export default function PaperDetail() {
         );
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Usability metrics generated successfully!");
-      refetchSummary();
+      if (isSaved) {
+        refetchSummary();
+      } else {
+        setLocalUsability({
+          domain_applicability: data.domain_applicability,
+          reproducibility_score: data.reproducibility_score,
+          new_tech_applicability: data.new_tech_applicability,
+          impact_score: data.impact_score,
+        });
+      }
     },
     onError: (error) => {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      const friendlyMsg = errorMsg.includes("not found")
-        ? "Paper not found. Please ensure it's saved and ingested."
+      const friendlyMsg = errorMsg.includes("no arxiv_id or pdf_url")
+        ? "No PDF URL available. Please save the paper first."
         : errorMsg.includes("timeout")
           ? "Analysis took too long. Please try again."
           : `Failed to generate metrics: ${errorMsg}`;
@@ -226,8 +263,9 @@ export default function PaperDetail() {
       })
     : "Date pending";
 
-  const aiSummary = summaryData?.summary;
-  const usabilityMetrics = summaryData?.usability;
+  // For saved papers: comes from DB via query. For unsaved: held in local state.
+  const aiSummary = summaryData?.summary ?? localSummary;
+  const usabilityMetrics = summaryData?.usability ?? localUsability;
 
   if (isLoading) {
     return (
@@ -331,7 +369,7 @@ export default function PaperDetail() {
                 <Button
                   onClick={handleSavePaper}
                   disabled={isSaved || savePaperMutation.isPending}
-                  className="bg-chip-amber hover:bg-chip-amber/90"
+                  variant="outline"
                 >
                   {savePaperMutation.isPending ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -343,24 +381,22 @@ export default function PaperDetail() {
                 <Button
                   onClick={handleChat}
                   disabled={!isSaved || !isIngested}
-                  className="bg-chip-violet hover:bg-chip-violet/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={
-                    !isSaved
-                      ? "Save the paper first to chat with it"
-                      : !isIngested
-                        ? "Paper is ingesting... Please wait a moment and refresh"
-                        : ""
-                  }
+                  variant="outline"
+                  title={!isSaved ? "Save the paper first to chat with it" : ""}
                 >
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Chat with Paper
+                  {isSaved && !isIngested ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                  )}
+                  {isSaved && !isIngested ? "Ingesting..." : "Chat with Paper"}
                 </Button>
                 <a
                   href={paper.pdfUrl || paper.htmlUrl || "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <Button className="bg-chip-coral hover:bg-chip-coral/90">
+                  <Button variant="outline">
                     <FileText className="w-4 h-4 mr-2" />
                     View PDF
                     <ExternalLink className="w-3 h-3 ml-2" />
@@ -374,7 +410,6 @@ export default function PaperDetail() {
                   >
                     <Button
                       variant="outline"
-                      className="border-chip-blue text-chip-blue hover:bg-chip-blue hover:text-white"
                     >
                       <Globe className="w-4 h-4 mr-2" />
                       HTML Version
@@ -389,9 +424,8 @@ export default function PaperDetail() {
                   >
                     <Button
                       variant="outline"
-                      className="border-chip-emerald text-chip-emerald hover:bg-chip-emerald hover:text-white"
                     >
-                      <Github className="w-4 h-4 mr-2" />
+                      <Code className="w-4 h-4 mr-2" />
                       Source Code
                     </Button>
                   </a>
@@ -401,15 +435,10 @@ export default function PaperDetail() {
                   Copy BibTeX
                 </Button>
               </div>
-              {isSaved && !isIngested && (
-                <p className="text-sm text-amber-600 dark:text-amber-500">
-                  📥 Document is being ingested... You'll be able to chat with it shortly.
-                </p>
-              )}
             </div>
             <Card
               className="animate-fade-in"
-              style={{ animationDelay: "0.15s", opacity: 0 }}
+              style={{ animationDelay: "0.15s" }}
             >
               <CardHeader>
                 <CardTitle className="text-lg">Abstract</CardTitle>
@@ -422,7 +451,7 @@ export default function PaperDetail() {
             </Card>
             <Card
               className="animate-fade-in"
-              style={{ animationDelay: "0.1s", opacity: 0 }}
+              style={{ animationDelay: "0.1s" }}
             >
               <CardHeader className="pb-1 space-y-1">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -437,129 +466,100 @@ export default function PaperDetail() {
           </div>
 
           <div className="lg:col-span-2">
-            {/* Sticky container for both AI Summary and Usability */}
-            <div className="sticky top-24 space-y-6 max-h-[calc(100vh-7rem)] overflow-y-auto scrollbar-thin">
+            {/* Sticky wrapper — overflow must be on a child, not this element */}
+            <div className="sticky top-24">
+            <ScrollArea className="h-[calc(100vh-7rem)]">
+            <div className="space-y-6 pb-4">
               {/* AI Summary Card */}
-              <Card
-                className="animate-slide-in-right overflow-hidden"
-                style={{ opacity: 0 }}
-              >
-                <CardHeader className="border-b bg-gradient-to-r from-chip-violet-bg to-chip-blue-bg rounded-t-lg">
+              <Card className="animate-slide-in-right">
+                <CardHeader className="border-b shrink-0">
                   <CardTitle className="flex items-center gap-2 text-lg">
-                    <Sparkles className="w-5 h-5 text-chip-violet" />
+                    <Sparkles className="w-5 h-5" />
                     AI-Generated Summary
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="pt-4">
+                <CardContent className="p-0">
                   {isSummaryLoading ? (
-                    <div className="flex items-center justify-center py-12">
+                    <div className="h-50 flex items-center justify-center">
                       <Loader2 className="w-8 h-8 animate-spin text-chip-violet" />
                     </div>
                   ) : aiSummary ? (
-                    <div className="markdown-content">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm, remarkMath]}
-                        rehypePlugins={[rehypeKatex, rehypeHighlight]}
-                        components={{
-                          h2: ({ children }) => (
-                            <h2 className="text-lg font-bold mt-4 mb-2 text-foreground">
-                              {children}
-                            </h2>
-                          ),
-                          h3: ({ children }) => (
-                            <h3 className="text-base font-semibold mt-3 mb-1 text-foreground">
-                              {children}
-                            </h3>
-                          ),
-                          p: ({ children }) => (
-                            <p className="text-sm text-muted-foreground my-2 leading-relaxed">
-                              {children}
-                            </p>
-                          ),
-                          ul: ({ children }) => (
-                            <ul className="list-disc list-outside text-sm text-muted-foreground my-2 ml-6 space-y-1">
-                              {children}
-                            </ul>
-                          ),
-                          ol: ({ children }) => (
-                            <ol className="list-decimal list-outside text-sm text-muted-foreground my-2 ml-6 space-y-1">
-                              {children}
-                            </ol>
-                          ),
-                          li: ({ children }) => (
-                            <li className="text-muted-foreground">
-                              {children}
-                            </li>
-                          ),
-                          table: ({ children }) => (
-                            <div className="overflow-x-auto my-4">
-                              <table className="w-full text-sm border border-border">
-                                {children}
-                              </table>
-                            </div>
-                          ),
-                          thead: ({ children }) => (
-                            <thead className="bg-muted">{children}</thead>
-                          ),
-                          tbody: ({ children }) => <tbody>{children}</tbody>,
-                          tr: ({ children }) => <tr>{children}</tr>,
-                          th: ({ children }) => (
-                            <th className="px-4 py-2 text-left font-semibold text-foreground border border-border bg-muted">
-                              {children}
-                            </th>
-                          ),
-                          td: ({ children }) => (
-                            <td className="px-4 py-2 text-muted-foreground border border-border">
-                              {children}
-                            </td>
-                          ),
-                          code: ({ className, children, ...props }) => {
-                            const isInline = !className;
-                            return isInline ? (
-                              <code
-                                className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono text-foreground"
-                                {...props}
-                              >
-                                {children}
-                              </code>
-                            ) : (
-                              <code
-                                className={`block bg-muted p-3 rounded text-sm font-mono overflow-x-auto ${className || ""}`}
-                                {...props}
-                              >
-                                {children}
-                              </code>
-                            );
-                          },
-                          pre: ({ children }) => (
-                            <pre className="bg-muted p-3 rounded text-sm font-mono overflow-x-auto my-3 border border-border">
-                              {children}
-                            </pre>
-                          ),
-                          strong: ({ children }) => (
-                            <strong className="font-semibold text-foreground">
-                              {children}
-                            </strong>
-                          ),
-                          em: ({ children }) => (
-                            <em className="italic text-foreground">
-                              {children}
-                            </em>
-                          ),
-                        }}
-                      >
-                        {aiSummary}
-                      </ReactMarkdown>
-                    </div>
+                    <ScrollArea className="h-80">
+                      <div className="px-4 py-4">
+                        <div className="markdown-content">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm, remarkMath]}
+                            rehypePlugins={[rehypeKatex, rehypeHighlight]}
+                            components={{
+                              h2: ({ children }) => (
+                                <h2 className="text-lg font-bold mt-4 mb-2 text-foreground">{children}</h2>
+                              ),
+                              h3: ({ children }) => (
+                                <h3 className="text-base font-semibold mt-3 mb-1 text-foreground">{children}</h3>
+                              ),
+                              p: ({ children }) => (
+                                <p className="text-sm text-muted-foreground my-2 leading-relaxed">{children}</p>
+                              ),
+                              ul: ({ children }) => (
+                                <ul className="list-disc list-outside text-sm text-muted-foreground my-2 ml-6 space-y-1">{children}</ul>
+                              ),
+                              ol: ({ children }) => (
+                                <ol className="list-decimal list-outside text-sm text-muted-foreground my-2 ml-6 space-y-1">{children}</ol>
+                              ),
+                              li: ({ children }) => (
+                                <li className="text-muted-foreground">{children}</li>
+                              ),
+                              table: ({ children }) => (
+                                <div className="overflow-x-auto my-4">
+                                  <table className="w-full text-sm border border-border">{children}</table>
+                                </div>
+                              ),
+                              thead: ({ children }) => <thead className="bg-muted">{children}</thead>,
+                              tbody: ({ children }) => <tbody>{children}</tbody>,
+                              tr: ({ children }) => <tr>{children}</tr>,
+                              th: ({ children }) => (
+                                <th className="px-4 py-2 text-left font-semibold text-foreground border border-border bg-muted">{children}</th>
+                              ),
+                              td: ({ children }) => (
+                                <td className="px-4 py-2 text-muted-foreground border border-border">{children}</td>
+                              ),
+                              code: ({ className, children, ...props }) => {
+                                const isInline = !className;
+                                return isInline ? (
+                                  <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono text-foreground" {...props}>
+                                    {children}
+                                  </code>
+                                ) : (
+                                  <code className={`block bg-muted p-3 rounded text-sm font-mono overflow-x-auto ${className || ""}`} {...props}>
+                                    {children}
+                                  </code>
+                                );
+                              },
+                              pre: ({ children }) => (
+                                <pre className="bg-muted p-3 rounded text-sm font-mono overflow-x-auto my-3 border border-border">{children}</pre>
+                              ),
+                              strong: ({ children }) => (
+                                <strong className="font-semibold text-foreground">{children}</strong>
+                              ),
+                              em: ({ children }) => (
+                                <em className="italic text-foreground">{children}</em>
+                              ),
+                            }}
+                          >
+                            {aiSummary}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    </ScrollArea>
                   ) : (
-                    <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <div className="h-50 flex flex-col items-center justify-center gap-4">
                       <p className="text-sm text-muted-foreground text-center">
                         No summary available yet.
                       </p>
                       <Button
                         onClick={() => generateSummaryMutation.mutate()}
                         disabled={generateSummaryMutation.isPending}
-                        className="bg-chip-violet hover:bg-chip-violet/90"
+                        variant="accent"
                       >
                         {generateSummaryMutation.isPending ? (
                           <>
@@ -580,8 +580,8 @@ export default function PaperDetail() {
 
               {/* Usability Metrics Card */}
               <Card
-                className="animate-slide-in-right overflow-hidden"
-                style={{ animationDelay: "0.05s", opacity: 0 }}
+                className="animate-slide-in-right"
+                style={{ animationDelay: "0.05s" }}
               >
                 {isSummaryLoading ? (
                   <CardContent className="pt-6">
@@ -593,21 +593,21 @@ export default function PaperDetail() {
                   <UsabilityChart usability={usabilityMetrics} />
                 ) : (
                   <>
-                    <CardHeader className="border-b bg-gradient-to-r from-chip-emerald-bg to-chip-teal-bg rounded-t-lg">
+                    <CardHeader className="border-b shrink-0">
                       <CardTitle className="flex items-center gap-2 text-lg">
-                        <Sparkles className="w-5 h-5 text-chip-emerald" />
+                        <Sparkles className="w-5 h-5" />
                         Usability Metrics
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="pt-6">
-                      <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <CardContent className="p-0">
+                      <div className="h-50 flex flex-col items-center justify-center gap-4">
                         <p className="text-sm text-muted-foreground text-center">
                           No usability metrics available yet.
                         </p>
                         <Button
                           onClick={() => generateUsabilityMutation.mutate()}
                           disabled={generateUsabilityMutation.isPending}
-                          className="bg-chip-emerald hover:bg-chip-emerald/90"
+                          variant="accent"
                         >
                           {generateUsabilityMutation.isPending ? (
                             <>
@@ -626,6 +626,8 @@ export default function PaperDetail() {
                   </>
                 )}
               </Card>
+            </div>
+            </ScrollArea>
             </div>
           </div>
         </div>
