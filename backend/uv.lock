@@ -223,13 +223,28 @@ dependencies = [
     { name = "authlib" },
     { name = "bcrypt" },
     { name = "boto3" },
+    { name = "botocore" },
+    { name = "cohere" },
+    { name = "cryptography" },
+    { name = "email-validator" },
     { name = "fastapi", extra = ["standard"] },
+    { name = "fastapi-cli" },
+    { name = "fastapi-cloud-cli" },
     { name = "firecrawl-py" },
+    { name = "google-auth" },
+    { name = "google-genai" },
+    { name = "groq" },
+    { name = "huggingface-hub" },
     { name = "langchain" },
+    { name = "langchain-classic" },
     { name = "langchain-cohere" },
+    { name = "langchain-community" },
+    { name = "langchain-core" },
     { name = "langchain-google-genai" },
     { name = "langchain-groq" },
     { name = "langchain-mistralai" },
+    { name = "langchain-openai" },
+    { name = "langchain-openrouter" },
     { name = "langchain-pinecone" },
     { name = "langchain-postgres" },
     { name = "langchain-pymupdf4llm" },
@@ -237,47 +252,148 @@ dependencies = [
     { name = "langchain-tavily" },
     { name = "langchain-text-splitters" },
     { name = "langgraph" },
+    { name = "langgraph-checkpoint" },
+    { name = "langgraph-checkpoint-postgres" },
+    { name = "langgraph-prebuilt" },
+    { name = "langgraph-sdk" },
+    { name = "langsmith" },
     { name = "logfire", extra = ["fastapi", "httpx", "requests", "sqlalchemy", "system-metrics"] },
     { name = "loguru" },
+    { name = "multidict" },
+    { name = "numpy" },
+    { name = "openai" },
+    { name = "openrouter" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-common" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-instrumentation-asgi" },
+    { name = "opentelemetry-instrumentation-fastapi" },
+    { name = "opentelemetry-instrumentation-httpx" },
+    { name = "opentelemetry-instrumentation-requests" },
+    { name = "opentelemetry-instrumentation-sqlalchemy" },
+    { name = "opentelemetry-instrumentation-system-metrics" },
+    { name = "opentelemetry-proto" },
+    { name = "opentelemetry-sdk" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "opentelemetry-util-http" },
+    { name = "pgvector" },
+    { name = "pinecone" },
+    { name = "pip" },
     { name = "pip-system-certs" },
+    { name = "protobuf" },
+    { name = "psutil" },
+    { name = "psycopg" },
+    { name = "psycopg-binary" },
+    { name = "psycopg-pool" },
     { name = "psycopg2-binary" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "pydantic-extra-types" },
+    { name = "pydantic-settings" },
     { name = "pymupdf" },
+    { name = "pymupdf4llm" },
     { name = "python-dotenv" },
     { name = "python-jose" },
+    { name = "python-multipart" },
+    { name = "pyyaml" },
+    { name = "redis" },
+    { name = "requests" },
     { name = "sqlalchemy" },
+    { name = "tiktoken" },
+    { name = "tokenizers" },
+    { name = "tqdm" },
     { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "alembic", specifier = ">=1.13.1" },
-    { name = "asyncpg", specifier = ">=0.31.0" },
+    { name = "alembic", specifier = "==1.18.4" },
+    { name = "asyncpg", specifier = "==0.31.0" },
     { name = "authlib", specifier = ">=1.6.6" },
-    { name = "bcrypt", specifier = ">=5.0.0" },
-    { name = "boto3", specifier = ">=1.42.38" },
-    { name = "fastapi", extras = ["standard"], specifier = ">=0.128.0" },
-    { name = "firecrawl-py", specifier = ">=4.16.0" },
-    { name = "langchain", specifier = ">=1.2.7" },
-    { name = "langchain-cohere", specifier = ">=0.5.0" },
-    { name = "langchain-google-genai", specifier = ">=4.2.0" },
-    { name = "langchain-groq", specifier = ">=1.1.1" },
-    { name = "langchain-mistralai", specifier = ">=1.1.1" },
-    { name = "langchain-pinecone", specifier = ">=0.2.13" },
-    { name = "langchain-postgres", specifier = ">=0.0.16" },
-    { name = "langchain-pymupdf4llm", specifier = ">=0.5.0" },
-    { name = "langchain-redis", specifier = ">=0.2.5" },
-    { name = "langchain-tavily", specifier = ">=0.2.17" },
-    { name = "langchain-text-splitters", specifier = ">=1.1.0" },
-    { name = "langgraph", specifier = ">=1.0.7" },
-    { name = "logfire", extras = ["fastapi", "httpx", "requests", "sqlalchemy", "system-metrics"], specifier = ">=4.21.0" },
-    { name = "loguru", specifier = ">=0.7.3" },
-    { name = "pip-system-certs", specifier = ">=5.3" },
-    { name = "psycopg2-binary", specifier = ">=2.9.11" },
-    { name = "pymupdf", specifier = ">=1.24.9" },
-    { name = "python-dotenv", specifier = ">=1.2.1" },
-    { name = "python-jose", specifier = ">=3.5.0" },
-    { name = "sqlalchemy", specifier = ">=2.0.46" },
-    { name = "uvicorn", specifier = ">=0.40.0" },
+    { name = "bcrypt", specifier = "==5.0.0" },
+    { name = "boto3", specifier = "==1.42.52" },
+    { name = "botocore", specifier = "==1.42.52" },
+    { name = "cohere", specifier = "==5.20.6" },
+    { name = "cryptography", specifier = "==46.0.5" },
+    { name = "email-validator", specifier = "==2.3.0" },
+    { name = "fastapi", extras = ["standard"], specifier = "==0.129.0" },
+    { name = "fastapi-cli", specifier = "==0.0.23" },
+    { name = "fastapi-cloud-cli", specifier = "==0.13.0" },
+    { name = "firecrawl-py", specifier = "==4.16.0" },
+    { name = "google-auth", specifier = "==2.48.0" },
+    { name = "google-genai", specifier = "==1.64.0" },
+    { name = "groq", specifier = "==0.37.1" },
+    { name = "huggingface-hub", specifier = "==1.4.1" },
+    { name = "langchain", specifier = "==1.2.10" },
+    { name = "langchain-classic", specifier = "==1.0.1" },
+    { name = "langchain-cohere", specifier = "==0.5.0" },
+    { name = "langchain-community", specifier = "==0.4.1" },
+    { name = "langchain-core", specifier = "==1.2.14" },
+    { name = "langchain-google-genai", specifier = "==4.2.0" },
+    { name = "langchain-groq", specifier = "==1.1.2" },
+    { name = "langchain-mistralai", specifier = "==1.1.1" },
+    { name = "langchain-openai", specifier = "==1.1.10" },
+    { name = "langchain-openrouter", specifier = ">=0.1.0" },
+    { name = "langchain-pinecone", specifier = "==0.2.13" },
+    { name = "langchain-postgres", specifier = "==0.0.17" },
+    { name = "langchain-pymupdf4llm", specifier = "==0.5.0" },
+    { name = "langchain-redis", specifier = "==0.2.5" },
+    { name = "langchain-tavily", specifier = "==0.2.17" },
+    { name = "langchain-text-splitters", specifier = "==1.1.1" },
+    { name = "langgraph", specifier = "==1.0.8" },
+    { name = "langgraph-checkpoint", specifier = "==4.0.0" },
+    { name = "langgraph-checkpoint-postgres", specifier = "==3.0.4" },
+    { name = "langgraph-prebuilt", specifier = "==1.0.7" },
+    { name = "langgraph-sdk", specifier = "==0.3.7" },
+    { name = "langsmith", specifier = "==0.7.4" },
+    { name = "logfire", extras = ["fastapi", "httpx", "requests", "sqlalchemy", "system-metrics"], specifier = "==4.25.0" },
+    { name = "loguru", specifier = "==0.7.3" },
+    { name = "multidict", specifier = "==6.7.1" },
+    { name = "numpy", specifier = "==2.4.2" },
+    { name = "openai", specifier = "==2.21.0" },
+    { name = "openrouter", specifier = "<0.8.0" },
+    { name = "opentelemetry-api", specifier = "==1.39.1" },
+    { name = "opentelemetry-exporter-otlp-proto-common", specifier = "==1.39.1" },
+    { name = "opentelemetry-exporter-otlp-proto-http", specifier = "==1.39.1" },
+    { name = "opentelemetry-instrumentation", specifier = "==0.60b1" },
+    { name = "opentelemetry-instrumentation-asgi", specifier = "==0.60b1" },
+    { name = "opentelemetry-instrumentation-fastapi", specifier = "==0.60b1" },
+    { name = "opentelemetry-instrumentation-httpx", specifier = "==0.60b1" },
+    { name = "opentelemetry-instrumentation-requests", specifier = "==0.60b1" },
+    { name = "opentelemetry-instrumentation-sqlalchemy", specifier = "==0.60b1" },
+    { name = "opentelemetry-instrumentation-system-metrics", specifier = "==0.60b1" },
+    { name = "opentelemetry-proto", specifier = "==1.39.1" },
+    { name = "opentelemetry-sdk", specifier = "==1.39.1" },
+    { name = "opentelemetry-semantic-conventions", specifier = "==0.60b1" },
+    { name = "opentelemetry-util-http", specifier = "==0.60b1" },
+    { name = "pgvector", specifier = "==0.3.6" },
+    { name = "pinecone", specifier = "==7.3.0" },
+    { name = "pip", specifier = "==26.0.1" },
+    { name = "pip-system-certs", specifier = "==5.3" },
+    { name = "protobuf", specifier = "==6.33.5" },
+    { name = "psutil", specifier = "==7.2.2" },
+    { name = "psycopg", specifier = "==3.3.3" },
+    { name = "psycopg-binary", specifier = "==3.3.3" },
+    { name = "psycopg-pool", specifier = "==3.3.0" },
+    { name = "psycopg2-binary", specifier = "==2.9.11" },
+    { name = "pydantic", specifier = "==2.12.5" },
+    { name = "pydantic-core", specifier = "==2.41.5" },
+    { name = "pydantic-extra-types", specifier = "==2.11.0" },
+    { name = "pydantic-settings", specifier = "==2.13.1" },
+    { name = "pymupdf", specifier = "==1.27.1" },
+    { name = "pymupdf4llm", specifier = "==0.1.9" },
+    { name = "python-dotenv", specifier = "==1.2.1" },
+    { name = "python-jose", specifier = "==3.5.0" },
+    { name = "python-multipart", specifier = "==0.0.22" },
+    { name = "pyyaml", specifier = "==6.0.3" },
+    { name = "redis", specifier = "==7.1.1" },
+    { name = "requests", specifier = "==2.32.5" },
+    { name = "sqlalchemy", specifier = "==2.0.46" },
+    { name = "tiktoken", specifier = "==0.12.0" },
+    { name = "tokenizers", specifier = "==0.22.2" },
+    { name = "tqdm", specifier = "==4.67.3" },
+    { name = "uvicorn", specifier = "==0.41.0" },
 ]
 
 [[package]]
@@ -1391,6 +1507,19 @@ wheels = [
 ]
 
 [[package]]
+name = "langchain-openrouter"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain-core" },
+    { name = "openrouter" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4e/6e/6e8a4156da07ba4827030302abad3b3e3c757f3c186f9cbb448d87cdd6fb/langchain_openrouter-0.1.0.tar.gz", hash = "sha256:3321fdab013a7bf370391497553a61a0368f81955128ceee020a815912bdbd62", size = 151982, upload-time = "2026-03-04T21:09:55.214Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c0/7a/e371200933a0091f62a7bc2011eb2894539f9fd21b31625f650aa3496519/langchain_openrouter-0.1.0-py3-none-any.whl", hash = "sha256:263a2d6e133a8a39cacafe499a7c29a191e39af8352e6f177d73af78673ebe8d", size = 18723, upload-time = "2026-03-04T21:09:54.315Z" },
+]
+
+[[package]]
 name = "langchain-pinecone"
 version = "0.2.13"
 source = { registry = "https://pypi.org/simple" }
@@ -1515,6 +1644,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/98/76/55a18c59dedf39688d72c4b06af73a5e3ea0d1a01bc867b88fbf0659f203/langgraph_checkpoint-4.0.0.tar.gz", hash = "sha256:814d1bd050fac029476558d8e68d87bce9009a0262d04a2c14b918255954a624", size = 137320, upload-time = "2026-01-12T20:30:26.38Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4a/de/ddd53b7032e623f3c7bcdab2b44e8bf635e468f62e10e5ff1946f62c9356/langgraph_checkpoint-4.0.0-py3-none-any.whl", hash = "sha256:3fa9b2635a7c5ac28b338f631abf6a030c3b508b7b9ce17c22611513b589c784", size = 46329, upload-time = "2026-01-12T20:30:25.2Z" },
+]
+
+[[package]]
+name = "langgraph-checkpoint-postgres"
+version = "3.0.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langgraph-checkpoint" },
+    { name = "orjson" },
+    { name = "psycopg" },
+    { name = "psycopg-pool" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/39/6a409958bd1e4e0804bbe4f9351e620f6087d5346e452c59824298a2a330/langgraph_checkpoint_postgres-3.0.4.tar.gz", hash = "sha256:83e6a1097563369173442de2a66e6d712d60a1a6de07c98c5130d476bb2b76ae", size = 127627, upload-time = "2026-01-31T00:44:16.478Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/14/56/7466f596add278798ab42697a56e992adde6866664afff6a5e4432540f29/langgraph_checkpoint_postgres-3.0.4-py3-none-any.whl", hash = "sha256:12cd5661da2a374882770deb9008a4eb16641c3fd38d7595e312030080390c6e", size = 42834, upload-time = "2026-01-31T00:44:15.118Z" },
 ]
 
 [[package]]
@@ -1905,6 +2049,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/92/e5/3d197a0947a166649f566706d7a4c8f7fe38f1fa7b24c9bcffe4c7591d44/openai-2.21.0.tar.gz", hash = "sha256:81b48ce4b8bbb2cc3af02047ceb19561f7b1dc0d4e52d1de7f02abfd15aa59b7", size = 644374, upload-time = "2026-02-14T00:12:01.577Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cc/56/0a89092a453bb2c676d66abee44f863e742b2110d4dbb1dbcca3f7e5fc33/openai-2.21.0-py3-none-any.whl", hash = "sha256:0bc1c775e5b1536c294eded39ee08f8407656537ccc71b1004104fe1602e267c", size = 1103065, upload-time = "2026-02-14T00:11:59.603Z" },
+]
+
+[[package]]
+name = "openrouter"
+version = "0.7.11"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpcore" },
+    { name = "httpx" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/36/07/75d8dbe6fa40017901e10acc587996229630a89c8b1f150a73fc0df9a01d/openrouter-0.7.11.tar.gz", hash = "sha256:3dcfb7c3d5a0909cca50d67b79f71f3847d03f922108ce22a91087edf2948ac8", size = 147847, upload-time = "2026-02-23T23:04:33.845Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1f/32/cfff59bdb81e5cd40bcfb01a33962c5299e3373ad24fadcb2c7f7e61a2f0/openrouter-0.7.11-py3-none-any.whl", hash = "sha256:102b4bccd435b928906ab73b111005260874a36b2ca9b34b8875b19981b09e4c", size = 300058, upload-time = "2026-02-23T23:04:35.028Z" },
 ]
 
 [[package]]
