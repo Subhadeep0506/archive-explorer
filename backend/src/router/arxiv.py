@@ -7,6 +7,7 @@ from ..controller.arxiv import (
     feed_topic_string,
     create_pdf_thumbnail,
 )
+from ..controller.catalog_controller import get_feed
 from ..schema.arxiv import ArxivEntry, ThumbnailRequest, ThumbnailResponse
 from ..lib.auth import get_current_user
 
@@ -86,6 +87,17 @@ async def feed_string(
         thumbnail_timeout_sec=thumbnail_timeout_sec,
         user_id=user_id,
     )
+
+
+@router.get("/catalog/feed", response_model=List[ArxivEntry])
+async def catalog_feed(
+    topics: List[str] = Query(..., description="List of primary categories to filter by"),
+    start: int = 0,
+    limit: int = 20,
+    _: int = Depends(get_current_user),
+):
+    """Fetch papers from the local ArXiv catalog (PostgreSQL-backed) by primary category."""
+    return await get_feed(topics=topics, start=start, limit=limit)
 
 
 @router.post("/thumbnail", response_model=ThumbnailResponse)

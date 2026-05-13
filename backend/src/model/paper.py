@@ -36,6 +36,7 @@ class Paper(Base, TimestampMixin):
         Boolean, nullable=False, server_default=text("false"), default=False
     )
     paper_summary: Mapped[str | None] = mapped_column(String, nullable=True)
+    keywords: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
     if TYPE_CHECKING:
         from .user import User  # pragma: no cover

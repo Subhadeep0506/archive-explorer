@@ -7,7 +7,6 @@ from ..database.db import session_pool
 from ..errors import DatabaseConnectionError
 from ..model.paper import Paper
 from ..model.usability import Usability
-from ..model.user_settings import UserSettings
 from ..schema.paper import PaperCreate, PaperResponse
 from ..core.logger import SingletonLogger
 from ..core.summary_engine.summary import SummaryEngine
@@ -68,8 +67,6 @@ async def generate_paper_summary(
         # API keys are already loaded by load_user_api_keys dependency
         async with session_pool() as session:
             paper = None
-            engine_arxiv_id = arxiv_id
-            engine_pdf_url = pdf_url
 
             if arxiv_id:
                 result = await session.execute(
@@ -79,33 +76,13 @@ async def generate_paper_summary(
                 if not paper:
                     raise HTTPException(status_code=404, detail="Paper not found")
 
-                # Paper exists but hasn't been ingested into the vector store yet.
-                # Fall back to loading directly from the PDF URL so we can still
-                # generate a summary without requiring ingestion first.
-                if not paper.ingested:
-                    engine_arxiv_id = None
-                    engine_pdf_url = engine_pdf_url or paper.pdf_url
-
-            if not engine_arxiv_id and not engine_pdf_url:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Cannot generate summary: no arxiv_id or pdf_url available.",
-                )
-
-            # Fetch user's preferred model (falls back to engine default if unset)
-            settings_result = await session.execute(
-                select(UserSettings).where(UserSettings.user_id == user_id)
-            )
-            user_settings = settings_result.scalar_one_or_none()
-            model_name = user_settings.summary_model if user_settings else None
-
             # Generate the summary
             summary = await SummaryEngine.generate_paper_summary(
-                engine_arxiv_id, engine_pdf_url, request, model_name
+                arxiv_id, pdf_url, request
             )
 
-            # Persist result when we have a saved paper record
-            if paper:
+            # Only update database if we have a paper record
+            if arxiv_id and paper:
                 paper.paper_summary = summary
                 await session.commit()
                 await session.refresh(paper)
@@ -130,8 +107,6 @@ async def generate_paper_usability(
         async with session_pool() as session:
             paper = None
             existing_usability = None
-            engine_arxiv_id = arxiv_id
-            engine_pdf_url = pdf_url
 
             if arxiv_id:
                 result = await session.execute(
@@ -141,12 +116,6 @@ async def generate_paper_usability(
                 if not paper:
                     raise HTTPException(status_code=404, detail="Paper not found")
 
-                # Paper exists but hasn't been ingested into the vector store yet.
-                # Fall back to loading directly from the PDF URL.
-                if not paper.ingested:
-                    engine_arxiv_id = None
-                    engine_pdf_url = engine_pdf_url or paper.pdf_url
-
                 # Check if usability record already exists for this user and paper
                 usability_result = await session.execute(
                     select(Usability).where(
@@ -155,22 +124,9 @@ async def generate_paper_usability(
                 )
                 existing_usability = usability_result.scalar_one_or_none()
 
-            if not engine_arxiv_id and not engine_pdf_url:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Cannot generate usability: no arxiv_id or pdf_url available.",
-                )
-
-            # Fetch user's preferred model (falls back to engine default if unset)
-            settings_result = await session.execute(
-                select(UserSettings).where(UserSettings.user_id == user_id)
-            )
-            user_settings = settings_result.scalar_one_or_none()
-            model_name = user_settings.usability_model if user_settings else None
-
             # Generate the usability metrics
             usability_data = await UsabilityEngine.generate_paper_summary(
-                engine_arxiv_id, engine_pdf_url, request, model_name
+                arxiv_id, pdf_url, request
             )
 
             # Only save to database if we have a paper record (arxiv_id provided)

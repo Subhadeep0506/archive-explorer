@@ -1,5 +1,6 @@
 import math
 
+from qdrant_client import models
 from ...embedding import EmbeddingFactory
 from ....controller.message import get_messages_by_session
 from ...vectorstore import VectorStoreFactory
@@ -33,14 +34,21 @@ async def context_retriever_node(state: AgentState):
         )
         embedding = EmbeddingFactory.build_embedding_model(request=state.get("request"))
         vector_store = VectorStoreFactory.build_vector_store(embedding_model=embedding)
+        filter_condition = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="metadata.paper_id",
+                    match=models.MatchValue(value=state["paper_id"]),
+                )
+            ]
+        )
         retriever = vector_store.as_retriever(
             search_kwargs={
-                "filter": {"paper_id": state["paper_id"]},
-                "fetch_k": state["top_k"] * 2,
+                "filter": filter_condition,
                 "k": (
                     math.ceil(
                         state["top_k"] * 0.4
-                    )  # Adjusted to 40% of top_k for vector store results if web search is used
+                    )
                     if state["use_web_search"]
                     else state["top_k"]
                 ),

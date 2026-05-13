@@ -2,6 +2,7 @@ import tiktoken
 from typing import Optional
 from fastapi import Request
 
+from qdrant_client import models
 from ..vectorstore import VectorStoreFactory
 from ..embedding import EmbeddingFactory
 from ..llm import LLMFactory
@@ -15,14 +16,9 @@ logger = SingletonLogger().get_logger()
 class SummaryEngine:
     """SummaryEngine class for generating summaries of papers."""
 
-    DEFAULT_MODEL = "groq/qwen3-32b"
-
     @staticmethod
     async def generate_paper_summary(
-        arxiv_id: str = None,
-        pdf_url: str = None,
-        request: Optional[Request] = None,
-        model_name: str = None,
+        arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None
     ) -> str:
         try:
             embedding = EmbeddingFactory.build_embedding_model(request=request)
@@ -30,8 +26,16 @@ class SummaryEngine:
                 embedding_model=embedding
             )
             if arxiv_id:
+                filter_condition = models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="metadata.paper_id",
+                            match=models.MatchValue(value=arxiv_id),
+                        )
+                    ]
+                )
                 retriever = vector_store.as_retriever(
-                    search_kwargs={"filter": {"paper_id": arxiv_id}, "fetch_k": 9999}
+                    search_kwargs={"filter": filter_condition, "k": 200}
                 )
                 docs = await retriever._aget_relevant_documents(
                     query="*", run_manager=None
@@ -40,8 +44,6 @@ class SummaryEngine:
                 full_content = "\n\n".join([doc.page_content for doc in sorted_docs])
             elif pdf_url:
                 full_content = await load_pdf_content(pdf_url)
-
-            resolved_model = model_name or SummaryEngine.DEFAULT_MODEL
 
             encoding = tiktoken.get_encoding("cl100k_base")
             tokens = encoding.encode(full_content)
@@ -57,15 +59,15 @@ class SummaryEngine:
                     chunk_tokens = tokens[i : i + token_limit]
                     chunk_content = encoding.decode(chunk_tokens)
                     summary = await SummaryEngine.__generate_summary(
-                        chunk_content, request, resolved_model
+                        chunk_content, request
                     )
                     cumulative_summary += summary + "\n\n"
                 final_summary = await SummaryEngine.__generate_summary(
-                    cumulative_summary, request, resolved_model
+                    cumulative_summary, request
                 )
             else:
                 final_summary = await SummaryEngine.__generate_summary(
-                    full_content, request, resolved_model
+                    full_content, request
                 )
             return final_summary
         except Exception as e:
@@ -74,12 +76,12 @@ class SummaryEngine:
 
     @classmethod
     async def __generate_summary(
-        cls, content: str, request: Optional[Request] = None, model_name: str = None
+        cls, content: str, request: Optional[Request] = None
     ) -> str:
         """Generate a summary of the given content."""
         try:
             llm = LLMFactory.build_llm(
-                model_name=model_name or SummaryEngine.DEFAULT_MODEL,
+                model_name="groq/qwen3-32b",
                 max_tokens=4096,
                 reasoning="hidden",
                 request=request,

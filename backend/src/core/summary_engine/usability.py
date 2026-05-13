@@ -5,6 +5,7 @@ from fastapi import Request
 from langchain.agents import create_agent
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, List
+from qdrant_client import models
 from langchain_core.documents import Document
 from ..vectorstore import VectorStoreFactory
 from ..embedding import EmbeddingFactory
@@ -42,14 +43,9 @@ class UsabilitySchema(BaseModel):
 class UsabilityEngine:
     """UsabilityEngine class for generating summaries of papers."""
 
-    DEFAULT_MODEL = "groq/qwen3-32b"
-
     @staticmethod
     async def generate_paper_summary(
-        arxiv_id: str = None,
-        pdf_url: str = None,
-        request: Optional[Request] = None,
-        model_name: str = None,
+        arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None
     ) -> dict:
         """Generate a summary of the paper's usability, applicability, and reproducibility based on its content.
 
@@ -71,7 +67,7 @@ class UsabilityEngine:
                 embedding_model=embedding
             )
             llm = LLMFactory.build_llm(
-                model_name=model_name or UsabilityEngine.DEFAULT_MODEL,
+                model_name="groq/qwen3-32b",
                 max_tokens=4096,
                 reasoning="hidden",
                 request=request,
@@ -82,8 +78,16 @@ class UsabilityEngine:
                 response_format=UsabilitySchema,
             )
             if arxiv_id:
+                filter_condition = models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="metadata.paper_id",
+                            match=models.MatchValue(value=arxiv_id),
+                        )
+                    ]
+                )
                 retriever = vector_store.as_retriever(
-                    search_kwargs={"filter": {"paper_id": arxiv_id}, "fetch_k": 9999}
+                    search_kwargs={"filter": filter_condition, "k": 200}
                 )
                 docs: List[Document] = await retriever._aget_relevant_documents(
                     query="*", run_manager=None

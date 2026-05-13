@@ -60,12 +60,6 @@ class UserSettingsBase(BaseModel):
     usability_analysis_instructions: Optional[str] = Field(
         None, description="Custom instructions for usability analysis"
     )
-    summary_model: Optional[str] = Field(
-        None, max_length=100, description="Model slug used for paper summary generation (e.g. 'groq/qwen3-32b')"
-    )
-    usability_model: Optional[str] = Field(
-        None, max_length=100, description="Model slug used for usability analysis (e.g. 'groq/qwen3-32b')"
-    )
 
 
 class UserSettingsCreate(UserSettingsBase):
@@ -85,12 +79,6 @@ class UserSettingsUpdate(BaseModel):
     )
     usability_analysis_instructions: Optional[str] = Field(
         None, description="Custom instructions for usability analysis"
-    )
-    summary_model: Optional[str] = Field(
-        None, max_length=100, description="Model slug for paper summary generation"
-    )
-    usability_model: Optional[str] = Field(
-        None, max_length=100, description="Model slug for usability analysis"
     )
     api_keys_encrypted: Optional[list[ApiKeyItem]] = Field(
         None, description="List of encrypted API keys"
