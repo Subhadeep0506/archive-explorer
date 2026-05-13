@@ -10,6 +10,13 @@ async def generate_response_node(state: AgentState, config: RunnableConfig):
     """Generates a response based on the provided state."""
     logger = SingletonLogger().get_logger()
     stream_writer = get_stream_writer()
+
+    def truncate_content(content: str, max_chars: int = 3000) -> str:
+        """Truncate content to prevent excessive context size."""
+        if len(content) <= max_chars:
+            return content
+        return content[:max_chars] + "\n[... content truncated ...]"
+
     try:
         llm = LLMFactory.build_llm(
             model_name=state["model_name"],
@@ -26,7 +33,7 @@ async def generate_response_node(state: AgentState, config: RunnableConfig):
         )
         web_context = "\n\n".join(
             [
-                f"Web Source {i+1}:\n{doc.page_content}"
+                f"Web Source {i+1}:\n{truncate_content(doc.page_content)}"
                 for i, doc in enumerate(state.get("web_search_results", []))
             ]
         )

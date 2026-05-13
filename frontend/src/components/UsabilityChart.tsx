@@ -158,7 +158,7 @@ export function UsabilityChart({ usability }: UsabilityChartProps) {
                     cursor={false}
                     content={
                       <ChartTooltipContent
-                        formatter={(value: number) => [`${value}%`, "Score"]}
+                        formatter={(value: number) => ["Score: ", `${value}%`, ]}
                       />
                     }
                   />
@@ -191,7 +191,7 @@ export function UsabilityChart({ usability }: UsabilityChartProps) {
                     cursor={false}
                     content={
                       <ChartTooltipContent
-                        formatter={(value: number) => [`${value}%`, "Score"]}
+                        formatter={(value: number) => ["Score: ", `${value}%`]}
                       />
                     }
                   />
