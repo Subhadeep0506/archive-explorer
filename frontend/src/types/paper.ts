@@ -13,6 +13,7 @@ export interface Paper {
   thumbnailUrl?: string;
   primaryCategory?: string;
   ingested?: boolean;
+  keywords?: string[];
 }
 
 export interface SavedPaper {
@@ -32,6 +33,7 @@ export interface SavedPaper {
   date_published?: string;
   created_at: string;
   ingested: boolean;
+  keywords?: string | null;
 }
 
 export interface FilterOption {
@@ -50,3 +52,23 @@ export interface Filters {
 }
 
 export type ViewMode = 'grid' | 'detailed';
+
+export interface RecommendationItem {
+  arxiv_id: string | null;
+  title: string | null;
+  abstract: string | null;
+  authors: string | null;
+  categories: string | null;
+  primary_category: string | null;
+  published_date: string | null;
+  paper_url: string | null;
+  pdf_url: string | null;
+  score: number | null;
+  final_score: number | null;
+}
+
+export interface RecommendationsResponse {
+  similar_papers: RecommendationItem[];
+  on_this_topic: RecommendationItem[];
+  from_these_authors: RecommendationItem[];
+}

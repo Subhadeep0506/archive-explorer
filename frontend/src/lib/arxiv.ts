@@ -4,27 +4,36 @@ import { ArxivEntry } from "@/types/arxiv";
 interface FeedParams {
     topics: string[];
     start?: number;
-    max_results?: number;
-    sort_by?: string;
-    sort_order?: string;
-    include_thumbnails?: boolean;
+    limit?: number;
 }
 
 export const DEFAULT_TOPICS = ["cs.AI", "cs.CL", "cs.LG", "stat.ML"];
 
 export async function fetchArxivFeed(
-    { topics, start = 0, max_results = 24, sort_by, sort_order, include_thumbnails = true }: FeedParams,
+    { topics, start = 0, limit = 24 }: FeedParams,
     token?: string | null,
 ): Promise<ArxivEntry[]> {
     const topicList = topics.length > 0 ? topics : DEFAULT_TOPICS;
-    return apiRequest<ArxivEntry[]>("/arxiv/feed", {
+    return apiRequest<ArxivEntry[]>("/arxiv/catalog/feed", {
         params: {
             topics: topicList,
             start,
-            max_results,
-            sort_by,
-            sort_order,
-            include_thumbnails,
+            limit,
+        },
+        token,
+    });
+}
+
+export async function fetchSmartFeed(
+    { topics, start = 0, limit = 24 }: FeedParams,
+    token?: string | null,
+): Promise<ArxivEntry[]> {
+    const topicList = topics.length > 0 ? topics : DEFAULT_TOPICS;
+    return apiRequest<ArxivEntry[]>("/arxiv/smart-feed", {
+        params: {
+            topics: topicList,
+            start,
+            limit,
         },
         token,
     });

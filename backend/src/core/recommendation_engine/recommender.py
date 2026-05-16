@@ -5,10 +5,24 @@ from typing import Optional
 from qdrant_client import models
 from qdrant_client.http.models import Document
 
-from ...lib.qdrant import get_qdrant_client, CATALOG_COLLECTION, CATALOG_EMBED_MODEL
+from qdrant_client.http.exceptions import ResponseHandlingException
+
+from ...lib.qdrant import get_qdrant_client, reset_qdrant_client, CATALOG_COLLECTION, CATALOG_EMBED_MODEL
 from ...core.logger import SingletonLogger
 
 logger = SingletonLogger().get_logger()
+
+
+async def _qdrant_query(method_name: str, *args, **kwargs):
+    """Call a QdrantClient method by name, retrying once on stale connection."""
+    client = get_qdrant_client()
+    try:
+        return await asyncio.to_thread(getattr(client, method_name), *args, **kwargs)
+    except ResponseHandlingException:
+        logger.warning("Qdrant connection error, resetting client and retrying")
+        await asyncio.sleep(2)
+        client = reset_qdrant_client()
+        return await asyncio.to_thread(getattr(client, method_name), *args, **kwargs)
 
 
 def _point_to_dict(point) -> dict:
@@ -17,6 +31,7 @@ def _point_to_dict(point) -> dict:
     return {
         "arxiv_id": payload.get("arxiv_id"),
         "title": payload.get("title"),
+        "abstract": payload.get("abstract"),
         "authors": payload.get("authors"),
         "categories": payload.get("categories"),
         "primary_category": payload.get("primary_category"),
@@ -28,37 +43,31 @@ def _point_to_dict(point) -> dict:
     }
 
 
+def _exclude(results: list[dict], exclude_ids: set[str]) -> list[dict]:
+    if not exclude_ids:
+        return results
+    return [r for r in results if r.get("arxiv_id") not in exclude_ids]
+
+
 async def get_similar_papers(
     title: str,
     abstract: str,
     exclude_ids: list[str],
     top_k: int = 20,
 ) -> list[dict]:
-    client = get_qdrant_client()
-    query_filter = None
-    if exclude_ids:
-        query_filter = models.Filter(
-            must_not=[
-                models.FieldCondition(
-                    key="arxiv_id",
-                    match=models.MatchAny(any=exclude_ids),
-                )
-            ]
-        )
-
-    results = await asyncio.to_thread(
-        client.query_points,
+    results = await _qdrant_query(
+        "query_points",
         collection_name=CATALOG_COLLECTION,
         query=Document(
             text=f"{title} {abstract}",
             model=CATALOG_EMBED_MODEL,
         ),
         using=CATALOG_EMBED_MODEL,
-        query_filter=query_filter,
-        limit=top_k,
+        limit=top_k + len(exclude_ids),
         with_payload=True,
     )
-    return [_point_to_dict(p) for p in results.points]
+    items = [_point_to_dict(p) for p in results.points]
+    return _exclude(items, set(exclude_ids))[:top_k]
 
 
 async def get_similar_on_topic(
@@ -68,24 +77,8 @@ async def get_similar_on_topic(
     exclude_ids: list[str],
     top_k: int = 10,
 ) -> list[dict]:
-    client = get_qdrant_client()
-    must_conditions = [
-        models.FieldCondition(
-            key="primary_category",
-            match=models.MatchValue(value=primary_category),
-        )
-    ]
-    must_not_conditions = []
-    if exclude_ids:
-        must_not_conditions.append(
-            models.FieldCondition(
-                key="arxiv_id",
-                match=models.MatchAny(any=exclude_ids),
-            )
-        )
-
-    results = await asyncio.to_thread(
-        client.query_points,
+    results = await _qdrant_query(
+        "query_points",
         collection_name=CATALOG_COLLECTION,
         query=Document(
             text=f"{title} {abstract}",
@@ -93,13 +86,18 @@ async def get_similar_on_topic(
         ),
         using=CATALOG_EMBED_MODEL,
         query_filter=models.Filter(
-            must=must_conditions,
-            must_not=must_not_conditions if must_not_conditions else None,
+            must=[
+                models.FieldCondition(
+                    key="primary_category",
+                    match=models.MatchValue(value=primary_category),
+                )
+            ],
         ),
-        limit=top_k,
+        limit=top_k + len(exclude_ids),
         with_payload=True,
     )
-    return [_point_to_dict(p) for p in results.points]
+    items = [_point_to_dict(p) for p in results.points]
+    return _exclude(items, set(exclude_ids))[:top_k]
 
 
 async def get_papers_by_authors(
@@ -107,7 +105,6 @@ async def get_papers_by_authors(
     exclude_ids: list[str],
     top_k: int = 10,
 ) -> list[dict]:
-    client = get_qdrant_client()
     author_list = [a.strip() for a in authors_str.split(";") if a.strip()][:5]
 
     results = []
@@ -122,19 +119,12 @@ async def get_papers_by_authors(
                 )
             ]
         )
-        if exclude_ids:
-            scroll_filter.must_not = [
-                models.FieldCondition(
-                    key="arxiv_id",
-                    match=models.MatchAny(any=list(seen)),
-                )
-            ]
 
-        scroll_result, _ = await asyncio.to_thread(
-            client.scroll,
+        scroll_result, _ = await _qdrant_query(
+            "scroll",
             collection_name=CATALOG_COLLECTION,
             scroll_filter=scroll_filter,
-            limit=top_k,
+            limit=top_k + len(seen),
             with_payload=True,
         )
 
@@ -148,6 +138,45 @@ async def get_papers_by_authors(
             break
 
     return results[:top_k]
+
+
+async def get_feed_recommendations(
+    query_texts: list[str],
+    category_filter: list[str],
+    exclude_ids: list[str],
+    offset: int = 0,
+    limit: int = 24,
+) -> list[dict]:
+    """Aggregate vector search across multiple saved papers, filtered by categories."""
+    combined = " ".join(query_texts)[:2000]
+
+    fetch_count = offset + limit + len(exclude_ids)
+
+    category_must = []
+    if category_filter:
+        category_must.append(
+            models.FieldCondition(
+                key="primary_category",
+                match=models.MatchAny(any=category_filter),
+            )
+        )
+
+    results = await _qdrant_query(
+        "query_points",
+        collection_name=CATALOG_COLLECTION,
+        query=Document(
+            text=combined,
+            model=CATALOG_EMBED_MODEL,
+        ),
+        using=CATALOG_EMBED_MODEL,
+        query_filter=models.Filter(must=category_must) if category_must else None,
+        limit=fetch_count,
+        with_payload=True,
+    )
+
+    items = [_point_to_dict(p) for p in results.points]
+    items = _exclude(items, set(exclude_ids))
+    return items[offset : offset + limit]
 
 
 def rerank_results(

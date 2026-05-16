@@ -1,13 +1,11 @@
 import { Paper } from "@/types/paper";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import {
-  Calendar,
-  Building2,
-  MapPin,
   BookmarkPlus,
+  BookmarkCheck,
   Loader2,
   CheckCircle2,
 } from "lucide-react";
@@ -16,8 +14,26 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { savePaper, ingestPaper } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PaperHoverCard } from "@/components/PaperHoverCard";
+
+export const CATEGORY_GRADIENTS: Record<string, string> = {
+  "cs.AI": "from-blue-700 via-indigo-500 to-violet-400",
+  "cs.CL": "from-emerald-700 via-teal-500 to-cyan-400",
+  "cs.LG": "from-purple-700 via-fuchsia-500 to-pink-400",
+  "cs.CV": "from-orange-700 via-amber-500 to-yellow-400",
+  "cs.CR": "from-red-700 via-rose-500 to-pink-400",
+  "cs.SE": "from-sky-700 via-blue-500 to-indigo-400",
+  "cs.RO": "from-slate-700 via-zinc-500 to-stone-400",
+  "cs.NE": "from-lime-700 via-green-500 to-emerald-400",
+  "cs.IR": "from-cyan-700 via-sky-500 to-blue-400",
+  "cs.DC": "from-violet-700 via-purple-500 to-indigo-400",
+  "cs.HC": "from-rose-700 via-pink-500 to-fuchsia-400",
+  "cs.CY": "from-amber-700 via-orange-500 to-red-400",
+  "cs.DB": "from-teal-700 via-emerald-500 to-green-400",
+  "stat.ML": "from-pink-700 via-rose-500 to-red-400",
+};
+export const DEFAULT_GRADIENT = "from-slate-700 via-blue-600 to-indigo-500";
 
 interface PaperCardProps {
   paper: Paper;
@@ -93,11 +109,15 @@ export function PaperCard({
     e.stopPropagation();
     savePaperMutation.mutate();
   };
-  const institutionLabel =
-    paper.institution || paper.primaryCategory || "arXiv";
-  const abstractPreview = paper.abstract
-    ? `${paper.abstract.slice(0, 80)}...`
-    : "Snapshot unavailable";
+  const cardGradient = useMemo(() => {
+    const cat = paper.primaryCategory || paper.topics?.[0] || "";
+    return CATEGORY_GRADIENTS[cat] || DEFAULT_GRADIENT;
+  }, [paper.primaryCategory, paper.topics]);
+
+  const displayAuthors = useMemo(() => {
+    if (paper.authors.length <= 2) return paper.authors.join(", ");
+    return `${paper.authors[0]}, ${paper.authors[1]}`;
+  }, [paper.authors]);
 
   return (
     <HoverCard openDelay={3000}>
@@ -107,48 +127,53 @@ export function PaperCard({
           state={{ paper, ...(fromSearch && { fromSearch }), ...(fromPage && { fromPage }) }}
         >
           <Card
-            className={`group h-full cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 animate-fade-in stagger-${(index % 6) + 1}`}
+            className={`group h-full cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 animate-fade-in stagger-${(index % 6) + 1} overflow-hidden`}
           >
-            <div className="aspect-video -mt-4 rounded-t-xl overflow-hidden relative">
-              {paper.thumbnailUrl ? (
-                <img
-                  src={paper.thumbnailUrl}
-                  alt={paper.title}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="h-full w-full bg-linear-to-br from-primary/10 via-primary/5 to-accent" />
-              )}
-              <div className="absolute inset-0 bg-linear-to-t from-background/90 via-background/0" />
-              <div className="absolute bottom-3 left-3 right-3 text-xs text-black/80 dark:text-white/80 line-clamp-2">
-                {abstractPreview}
-              </div>
-            </div>
-            <CardHeader className="pb-2 relative">
-              <h3 className="font-semibold text-base leading-snug line-clamp-2 group-hover:text-primary transition-colors pr-24">
-                {paper.title}
-              </h3>
-              <div className="absolute top-2 right-2 z-10">
+            <div className={`relative -mt-4 px-5 pt-5 pb-4 bg-linear-to-br ${cardGradient} flex flex-col justify-between min-h-[180px]`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-medium text-white/70 tracking-wide shrink-0">
+                    {paper.primaryCategory || "arXiv"}
+                  </span>
+                  <span className="text-xs text-white/50 truncate">
+                    {paper.id}
+                  </span>
+                </div>
                 <Button
-                  size="icon-lg"
+                  size="icon"
                   onClick={handleSavePaper}
                   disabled={isSaved || savePaperMutation.isPending}
-                  className="bg-amber-500 hover:bg-amber-600 text-white shadow-md"
+                  className={`size-8 border-0 shadow-none backdrop-blur-sm ${
+                    isSaved
+                      ? "bg-white/10 text-white/40 cursor-default"
+                      : "bg-white text-indigo-700 hover:bg-white/90 hover:scale-110 transition-transform"
+                  }`}
                 >
                   {savePaperMutation.isPending ? (
-                    <Loader2 className="size-5 animate-spin" />
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : isSaved ? (
+                    <BookmarkCheck className="size-4" />
                   ) : (
-                    <BookmarkPlus className="size-5" />
+                    <BookmarkPlus className="size-4" />
                   )}
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent className="pt-0 space-y-3">
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {paper.authors.join(", ")}
-              </p>
 
+              <h3 className="font-bold text-base leading-snug text-white line-clamp-3 mt-2">
+                {paper.title}
+              </h3>
+
+              <div className="flex items-center gap-2 mt-3 text-xs text-white/70">
+                <span className="truncate">{displayAuthors}</span>
+                <span className="shrink-0">&middot;</span>
+                <span className="shrink-0">{formattedDate}</span>
+              </div>
+            </div>
+
+            <CardContent className="pt-3 pb-3 space-y-2">
+              <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                {paper.abstract || "No abstract available."}
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 {paper.topics.slice(0, 2).map((topic) => (
                   <Badge key={topic} variant="secondary" className="text-xs">
@@ -160,17 +185,6 @@ export function PaperCard({
                     +{paper.topics.length - 2}
                   </Badge>
                 )}
-              </div>
-
-              <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5" />
-                  {formattedDate}
-                </span>
-                <span className="flex items-center gap-1 truncate">
-                  <Building2 className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{institutionLabel}</span>
-                </span>
                 {isSaved && isIngested && (
                   <Badge
                     variant="outline"

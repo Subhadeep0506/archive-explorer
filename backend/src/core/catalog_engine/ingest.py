@@ -1,4 +1,5 @@
 import asyncio
+import time
 import uuid
 import xml.etree.ElementTree as ET
 from typing import Optional
@@ -68,7 +69,9 @@ def _parse_arxiv_record(record: Record) -> Optional[dict]:
         return None
 
 
-def _harvest_records(set_spec: str, from_date: Optional[str], until_date: Optional[str]) -> list[dict]:
+def _harvest_records(
+    set_spec: str, from_date: Optional[str], until_date: Optional[str]
+) -> list[dict]:
     """Synchronous OAI-PMH harvest via Sickle. Returns list of parsed record dicts."""
     sickle = Sickle(OAI_ENDPOINT)
     kwargs = {"metadataPrefix": "arXiv", "set": set_spec}
@@ -94,9 +97,13 @@ async def load_catalog_from_oai(
     batch_size: int = 500,
 ) -> int:
     """Harvest ArXiv papers via OAI-PMH and upsert metadata to PostgreSQL."""
-    logger.info(f"Starting OAI-PMH harvest: set={set_spec}, from={from_date}, until={until_date}")
+    logger.info(
+        f"Starting OAI-PMH harvest: set={set_spec}, from={from_date}, until={until_date}"
+    )
 
-    parsed_records = await asyncio.to_thread(_harvest_records, set_spec, from_date, until_date)
+    parsed_records = await asyncio.to_thread(
+        _harvest_records, set_spec, from_date, until_date
+    )
     logger.info(f"Harvested {len(parsed_records)} records from OAI-PMH")
 
     if not parsed_records:
@@ -129,67 +136,139 @@ async def load_catalog_from_oai(
     return total_upserted
 
 
+def _upsert_with_retry(client, collection_name: str, points, max_retries: int = 5):
+    for attempt in range(1, max_retries + 1):
+        try:
+            client.upsert(collection_name=collection_name, points=points)
+            return
+        except Exception as e:
+            err = str(e).lower()
+            if any(s in err for s in ["getaddrinfo", "connecterror", "timed out", "connection reset"]) and attempt < max_retries:
+                delay = 3.0 * attempt
+                logger.warning(f"Qdrant upsert failed (attempt {attempt}/{max_retries}): {e}. Retrying in {delay:.0f}s...")
+                time.sleep(delay)
+            else:
+                raise
+
+
 async def upsert_catalog_to_qdrant(
     session: AsyncSession,
     batch_size: int = 100,
+    show_progress: bool = False,
 ) -> int:
     """Index unsynced catalog rows into Qdrant with server-side embedding."""
+    from sqlalchemy import update
+
     client = get_qdrant_client()
     total_indexed = 0
 
-    while True:
-        result = await session.execute(
-            select(ArxivCatalog)
-            .where(ArxivCatalog.indexed_in_qdrant == False)
-            .limit(batch_size)
-        )
-        rows = result.scalars().all()
-        if not rows:
-            break
+    pending_count = await session.scalar(
+        select(func.count())
+        .select_from(ArxivCatalog)
+        .where(ArxivCatalog.indexed_in_qdrant == False)
+    )
+    if not pending_count:
+        logger.info("No pending rows to index in Qdrant")
+        return 0
 
-        points = []
-        arxiv_ids = []
-        for row in rows:
-            point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, row.arxiv_id))
-            points.append(
-                PointStruct(
-                    id=point_id,
-                    payload={
-                        "arxiv_id": row.arxiv_id,
-                        "title": row.title,
-                        "abstract": row.abstract,
-                        "authors": row.authors,
-                        "categories": row.categories,
-                        "primary_category": row.primary_category,
-                        "published_date": row.published_date,
-                        "paper_url": row.paper_url,
-                        "pdf_url": row.pdf_url,
-                    },
-                    vector={
-                        CATALOG_EMBED_MODEL: Document(
-                            text=f"{row.title} {row.abstract}",
-                            model=CATALOG_EMBED_MODEL,
-                        )
-                    },
-                )
+    logger.info(f"{pending_count} rows pending Qdrant indexing")
+
+    progress_ctx = (
+        _qdrant_progress(pending_count) if show_progress else _noop_progress()
+    )
+    async with progress_ctx as advance:
+        while True:
+            result = await session.execute(
+                select(ArxivCatalog)
+                .where(ArxivCatalog.indexed_in_qdrant == False)
+                .limit(batch_size)
             )
-            arxiv_ids.append(row.arxiv_id)
+            rows = result.scalars().all()
+            if not rows:
+                break
 
-        await asyncio.to_thread(
-            client.upsert,
-            collection_name=CATALOG_COLLECTION,
-            points=points,
-        )
+            points = []
+            arxiv_ids = []
+            for row in rows:
+                point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, row.arxiv_id))
+                points.append(
+                    PointStruct(
+                        id=point_id,
+                        payload={
+                            "arxiv_id": row.arxiv_id,
+                            "title": row.title,
+                            "abstract": row.abstract,
+                            "authors": row.authors,
+                            "categories": row.categories,
+                            "primary_category": row.primary_category,
+                            "published_date": row.published_date,
+                            "paper_url": row.paper_url,
+                            "pdf_url": row.pdf_url,
+                        },
+                        vector={
+                            CATALOG_EMBED_MODEL: Document(
+                                text=f"{row.title} {row.abstract}",
+                                model=CATALOG_EMBED_MODEL,
+                            )
+                        },
+                    )
+                )
+                arxiv_ids.append(row.arxiv_id)
 
-        from sqlalchemy import update
-        await session.execute(
-            update(ArxivCatalog)
-            .where(ArxivCatalog.arxiv_id.in_(arxiv_ids))
-            .values(indexed_in_qdrant=True)
-        )
-        await session.commit()
-        total_indexed += len(rows)
-        logger.info(f"Indexed {total_indexed} catalog rows in Qdrant so far")
+            await asyncio.to_thread(
+                _upsert_with_retry, client, CATALOG_COLLECTION, points
+            )
+
+            await session.execute(
+                update(ArxivCatalog)
+                .where(ArxivCatalog.arxiv_id.in_(arxiv_ids))
+                .values(indexed_in_qdrant=True)
+            )
+            await session.commit()
+            total_indexed += len(rows)
+            advance(len(rows))
+            logger.info(
+                f"Indexed {total_indexed}/{pending_count} catalog rows in Qdrant"
+            )
 
     logger.info(f"Qdrant catalog indexing complete: {total_indexed} rows indexed")
     return total_indexed
+
+
+class _noop_progress:
+    async def __aenter__(self):
+        return lambda n: None
+
+    async def __aexit__(self, *exc):
+        pass
+
+
+class _qdrant_progress:
+    def __init__(self, total: int):
+        self._total = total
+
+    async def __aenter__(self):
+        from rich.progress import (
+            Progress,
+            SpinnerColumn,
+            BarColumn,
+            TextColumn,
+            TimeElapsedColumn,
+            TimeRemainingColumn,
+            MofNCompleteColumn,
+        )
+
+        self._progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold cyan]Qdrant indexing"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+        )
+        self._progress.start()
+        self._task = self._progress.add_task("Indexing", total=self._total)
+        return lambda n: self._progress.advance(self._task, n)
+
+    async def __aexit__(self, *exc):
+        self._progress.stop()

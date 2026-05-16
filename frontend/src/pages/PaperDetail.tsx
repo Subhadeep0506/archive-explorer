@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -13,6 +14,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { PaperPdfViewer } from "@/components/PdfViewer";
+import { RecommendationSection } from "@/components/RecommendationSection";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UsabilityChart } from "@/components/UsabilityChart";
 import {
@@ -72,20 +74,19 @@ export default function PaperDetail() {
   const { data, isLoading } = useQuery({
     queryKey: ["paper", id],
     queryFn: () => fetchPaperById(id!, accessToken),
-    enabled: Boolean(id && accessToken && !statePaper),
+    enabled: Boolean(id && accessToken),
     staleTime: 1000 * 60 * 10, // 10 minutes
     gcTime: 1000 * 60 * 30, // 30 minutes
     refetchOnWindowFocus: false,
   });
 
-  const paper = statePaper || (data ? normalizeArxivEntry(data) : undefined);
+  const fetchedPaper = data ? normalizeArxivEntry(data) : undefined;
+  const paper = fetchedPaper || statePaper;
 
   const { data: savedPapers } = useQuery({
     queryKey: ["savedPapers"],
     queryFn: () => getSavedPapers(accessToken),
     enabled: Boolean(accessToken),
-    staleTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: false,
   });
 
   // Computed before the summary query so we can gate the query on isSaved
@@ -93,15 +94,16 @@ export default function PaperDetail() {
   const savedPaperData = savedPapers?.find((sp) => sp.arxiv_id === paper?.id);
   const isIngested = savedPaperData?.ingested ?? false;
 
-  // Poll savedPapers every 3 s while this paper is saved but ingestion hasn't finished yet.
-  // Stops automatically once isIngested flips to true.
+  const hasKeywords = Boolean(savedPaperData?.keywords);
+
+  // Poll savedPapers every 3s while ingestion or keyword extraction is pending.
   useEffect(() => {
-    if (!isSaved || isIngested) return;
+    if (!isSaved || (isIngested && hasKeywords)) return;
     const interval = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
     }, 3000);
     return () => clearInterval(interval);
-  }, [isSaved, isIngested, queryClient]);
+  }, [isSaved, isIngested, hasKeywords, queryClient]);
 
   // Local state for unsaved papers — results are generated but never persisted in DB,
   // so we hold them in memory for the lifetime of this page visit.
@@ -267,12 +269,89 @@ export default function PaperDetail() {
   const aiSummary = summaryData?.summary ?? localSummary;
   const usabilityMetrics = summaryData?.usability ?? localUsability;
 
-  if (isLoading) {
+  const paperKeywords = savedPaperData?.keywords
+    ? savedPaperData.keywords.split(",").map((k: string) => k.trim()).filter(Boolean)
+    : [];
+
+  if (isLoading && !statePaper) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto py-6 px-4">
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <Loader2 className="w-12 h-12 animate-spin text-chip-violet" />
+          <div className="mb-6">
+            <Skeleton className="h-5 w-64" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3 space-y-6">
+              <div className="space-y-4">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-4/5" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+                <div className="flex flex-wrap items-center gap-4">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-40" />
+                </div>
+                <div className="flex gap-3">
+                  <Skeleton className="h-10 w-32 rounded-md" />
+                  <Skeleton className="h-10 w-40 rounded-md" />
+                  <Skeleton className="h-10 w-28 rounded-md" />
+                  <Skeleton className="h-10 w-32 rounded-md" />
+                </div>
+              </div>
+              <Card>
+                <CardHeader><Skeleton className="h-6 w-24" /></CardHeader>
+                <CardContent className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><Skeleton className="h-6 w-36" /></CardHeader>
+                <CardContent>
+                  <Skeleton className="h-100 w-full rounded-lg" />
+                </CardContent>
+              </Card>
+            </div>
+            <div className="lg:col-span-2 space-y-6">
+              <Card>
+                <CardHeader className="border-b">
+                  <Skeleton className="h-6 w-48" />
+                </CardHeader>
+                <CardContent className="pt-4 space-y-3">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="border-b">
+                  <Skeleton className="h-6 w-40" />
+                </CardHeader>
+                <CardContent className="pt-4 space-y-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="space-y-1.5">
+                      <div className="flex justify-between">
+                        <Skeleton className="h-3 w-32" />
+                        <Skeleton className="h-3 w-8" />
+                      </div>
+                      <Skeleton className="h-2.5 w-full rounded-full" />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
@@ -345,6 +424,17 @@ export default function PaperDetail() {
                   </Badge>
                 ))}
               </div>
+
+              {paperKeywords.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <span className="text-xs text-muted-foreground font-medium">Keywords:</span>
+                  {paperKeywords.map((kw: string) => (
+                    <Badge key={kw} variant="outline" className="text-xs">
+                      {kw}
+                    </Badge>
+                  ))}
+                </div>
+              )}
 
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-6">
                 <span className="flex items-center gap-1.5">
@@ -463,6 +553,7 @@ export default function PaperDetail() {
                 <PaperPdfViewer paper={paper} />
               </CardContent>
             </Card>
+            <RecommendationSection paper={paper} />
           </div>
 
           <div className="lg:col-span-2">
@@ -480,8 +571,15 @@ export default function PaperDetail() {
                 </CardHeader>
                 <CardContent className="p-0">
                   {isSummaryLoading ? (
-                    <div className="h-50 flex items-center justify-center">
-                      <Loader2 className="w-8 h-8 animate-spin text-chip-violet" />
+                    <div className="px-4 py-4 space-y-3">
+                      <Skeleton className="h-5 w-3/5" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-4/5" />
+                      <Skeleton className="h-5 w-2/5 mt-2" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
                     </div>
                   ) : aiSummary ? (
                     <ScrollArea className="h-80">
@@ -584,11 +682,25 @@ export default function PaperDetail() {
                 style={{ animationDelay: "0.05s" }}
               >
                 {isSummaryLoading ? (
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="w-8 h-8 animate-spin text-chip-emerald" />
-                    </div>
-                  </CardContent>
+                  <>
+                    <CardHeader className="border-b shrink-0">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Sparkles className="w-5 h-5" />
+                        Usability Metrics
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4 space-y-4">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="space-y-1.5">
+                          <div className="flex justify-between">
+                            <Skeleton className="h-3 w-32" />
+                            <Skeleton className="h-3 w-8" />
+                          </div>
+                          <Skeleton className="h-2.5 w-full rounded-full" />
+                        </div>
+                      ))}
+                    </CardContent>
+                  </>
                 ) : usabilityMetrics ? (
                   <UsabilityChart usability={usabilityMetrics} />
                 ) : (

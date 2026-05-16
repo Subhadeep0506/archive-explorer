@@ -12,9 +12,9 @@ class ArxivCatalog(Base, TimestampMixin):
     arxiv_id: Mapped[str] = mapped_column(
         String(50), nullable=False, unique=True, index=True
     )
-    title: Mapped[str] = mapped_column(String(512), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
     abstract: Mapped[str] = mapped_column(Text, nullable=False)
-    authors: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    authors: Mapped[str | None] = mapped_column(Text, nullable=True)
     categories: Mapped[str | None] = mapped_column(String(256), nullable=True)
     primary_category: Mapped[str | None] = mapped_column(
         String(50), nullable=True, index=True

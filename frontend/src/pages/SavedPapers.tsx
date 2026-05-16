@@ -581,17 +581,44 @@ export default function SavedPapers() {
         </Card>
 
         {showTableLoading ? (
-          <Card>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-lg border bg-card overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-[30%]">Title</TableHead>
+                  <TableHead className="w-[10%]">Added</TableHead>
+                  <TableHead className="w-[10%]">Published</TableHead>
+                  <TableHead className="w-[25%]">Summary</TableHead>
+                  <TableHead className="w-[8%] text-center">Status</TableHead>
+                  <TableHead className="w-[17%] text-center">Links</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </TableCell>
+                    <TableCell><Skeleton className="h-4 w-14" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-14" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                    <TableCell className="text-center"><Skeleton className="h-6 w-20 rounded-full mx-auto" /></TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center gap-2">
+                        <Skeleton className="h-6 w-14 rounded-full" />
+                        <Skeleton className="h-6 w-12 rounded-full" />
+                        <Skeleton className="h-6 w-14 rounded-full" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         ) : !savedPapers || savedPapers.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>

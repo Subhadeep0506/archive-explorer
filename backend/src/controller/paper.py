@@ -342,6 +342,7 @@ async def create_paper_from_upload(
     published_date: str | None = None,
     institution: str | None = None,
     date_published: str | None = None,
+    background_tasks: Optional[BackgroundTasks] = None,
 ) -> PaperResponse:
     """Create a paper from an uploaded PDF file."""
     try:
@@ -393,6 +394,11 @@ async def create_paper_from_upload(
                 # Non-fatal; keep paper even if thumbnail fails
                 logger.warning(
                     f"Thumbnail generation failed for uploaded paper id={paper.id}: {str(e)}"
+                )
+
+            if background_tasks and paper.title and paper.abstract:
+                background_tasks.add_task(
+                    index_paper_background, paper.id, paper.title, paper.abstract
                 )
 
             return PaperResponse(

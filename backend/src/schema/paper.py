@@ -59,9 +59,18 @@ class BulkDeletePapers(BaseModel):
     paper_ids: list[int]
 
 
+class RecommendationRequest(BaseModel):
+    title: str
+    abstract: str
+    authors: str
+    primary_category: Optional[str] = None
+    arxiv_id: Optional[str] = None
+
+
 class RecommendationItem(BaseModel):
     arxiv_id: Optional[str] = None
     title: Optional[str] = None
+    abstract: Optional[str] = None
     authors: Optional[str] = None
     categories: Optional[str] = None
     primary_category: Optional[str] = None

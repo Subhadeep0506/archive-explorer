@@ -13,6 +13,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useUserData } from "@/context/UserDataContext";
 import { createProfile, updateProfile, uploadAvatar } from "@/lib/api";
 import type { Profile, ProfileUpdate } from "@/types/profile";
+import { CategoryMultiSelect } from "@/components/CategoryMultiSelect";
 import { Upload, Save, X, ArrowLeft, Loader2 } from "lucide-react";
 
 export default function Profile() {
@@ -233,26 +234,25 @@ export default function Profile() {
                   </div>
 
                   <div>
-                    <Label htmlFor="topics">Topic Preferences</Label>
-                    <Textarea
-                      id="topics"
+                    <Label>Topic Preferences</Label>
+                    <CategoryMultiSelect
                       value={
-                        formData.topic_preferences ??
-                        profile?.topic_preferences ??
-                        ""
+                        (formData.topic_preferences ??
+                          profile?.topic_preferences ??
+                          "")
+                          .split(",")
+                          .map((t) => t.trim())
+                          .filter(Boolean)
                       }
-                      onChange={(e) =>
+                      onChange={(selected) =>
                         setFormData((prev) => ({
                           ...prev,
-                          topic_preferences: e.target.value,
+                          topic_preferences: selected.join(","),
                         }))
                       }
-                      placeholder="Enter topics separated by commas (e.g., cs.AI, cs.CL, stat.ML)"
-                      rows={2}
                     />
                     <p className="text-sm text-muted-foreground mt-1">
-                      Separate topics with commas. These will be used to
-                      personalize your paper recommendations.
+                      Select arXiv categories to personalize your paper feed.
                     </p>
                   </div>
                 </>

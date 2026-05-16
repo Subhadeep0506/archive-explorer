@@ -21,6 +21,7 @@ from src.core.chat_engine.agent_state import AgentState
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from src.lib.qdrant import ensure_collections_exist
+from src.core.background_tasks import backfill_missing_keywords
 from src.core.catalog_engine.update import run_daily_catalog_update
 from src.router.auth import router as auth_router
 from src.router.profile import router as profile_router
@@ -60,6 +61,13 @@ async def lifespan(app: FastAPI):
         logger.info("Qdrant collections verified.")
     except Exception as e:
         logger.warning(f"Qdrant collection setup failed (non-fatal): {e}")
+
+    try:
+        backfilled = await backfill_missing_keywords()
+        if backfilled:
+            logger.info(f"Backfilled keywords for {backfilled} papers on startup.")
+    except Exception as e:
+        logger.warning(f"Keyword backfill failed (non-fatal): {e}")
 
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(

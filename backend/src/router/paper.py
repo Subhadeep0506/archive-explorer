@@ -46,6 +46,7 @@ async def add_paper(
 
 @router.post("/upload", response_model=PaperResponse)
 async def upload_paper_pdf(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: str = Form(...),
     abstract: str = Form(...),
@@ -69,6 +70,7 @@ async def upload_paper_pdf(
         published_date=published_date,
         institution=institution,
         date_published=date_published,
+        background_tasks=background_tasks,
     )
 
 

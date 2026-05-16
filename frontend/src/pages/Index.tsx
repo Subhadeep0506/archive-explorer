@@ -5,7 +5,8 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Loader2, Search, RefreshCw } from "lucide-react";
+import { Search, RefreshCw } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FilterSidebar } from "@/components/FilterSidebar";
 import { ViewToggle } from "@/components/ViewToggle";
 import { PaperCard } from "@/components/PaperCard";
@@ -14,7 +15,7 @@ import { Filters, FilterOption, Paper, ViewMode } from "@/types/paper";
 import { ArxivEntry } from "@/types/arxiv";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { fetchArxivFeed, DEFAULT_TOPICS } from "@/lib/arxiv";
+import { fetchSmartFeed, DEFAULT_TOPICS } from "@/lib/arxiv";
 import { useAuth } from "@/context/AuthContext";
 import { useUserData } from "@/context/UserDataContext";
 import { useSearch } from "@/context/SearchContext";
@@ -57,6 +58,7 @@ export default function Index() {
   const {
     data,
     isLoading,
+    isFetching,
     isError,
     error,
     fetchNextPage,
@@ -65,8 +67,8 @@ export default function Index() {
   } = useInfiniteQuery({
     queryKey: ["papers", topicsToUse.join(",")],
     queryFn: ({ pageParam }: { pageParam: number }) =>
-      fetchArxivFeed(
-        { topics: topicsToUse, start: pageParam, max_results: 24 },
+      fetchSmartFeed(
+        { topics: topicsToUse, start: pageParam, limit: 24 },
         accessToken,
       ),
     initialPageParam: 0,
@@ -133,13 +135,14 @@ export default function Index() {
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={isFetching}
                   onClick={() =>
                     queryClient.invalidateQueries({
                       queryKey: ["papers", topicsToUse.join(",")],
                     })
                   }
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className={`w-4 h-4 ${isFetching && !isLoading ? "animate-spin" : ""}`} />
                 </Button>
                 <ViewToggle mode={viewMode} onModeChange={setViewMode} />
               </div>
@@ -152,8 +155,41 @@ export default function Index() {
           </div>
 
           {isLoading ? (
-            <div className="flex h-64 items-center justify-center text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="rounded-xl border bg-card overflow-hidden">
+                  <div className="px-5 pt-5 pb-4 bg-muted/60 space-y-3 min-h-45 flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-4 w-12 rounded-full" />
+                        <Skeleton className="h-4 w-20 rounded-full" />
+                      </div>
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                    </div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-5 w-full" />
+                      <Skeleton className="h-5 w-4/5" />
+                      <Skeleton className="h-5 w-3/5" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-3 w-28" />
+                      <Skeleton className="h-3 w-3 rounded-full" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                  <div className="px-5 pt-3 pb-3 space-y-2">
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-2/3" />
+                    </div>
+                    <div className="flex gap-1.5">
+                      <Skeleton className="h-5 w-14 rounded-full" />
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : isError ? (
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-destructive">

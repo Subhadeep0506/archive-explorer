@@ -438,6 +438,26 @@ export async function generateUsabilityFlexible(
     });
 }
 
+// Recommendation API functions
+export async function getRecommendations(
+    paper: { title: string; abstract: string; authors: string[]; id?: string; primaryCategory?: string },
+    token?: string | null,
+    limit: number = 10,
+): Promise<import("@/types/paper").RecommendationsResponse> {
+    return apiRequest("/arxiv/recommendations", {
+        method: "POST",
+        body: {
+            title: paper.title,
+            abstract: paper.abstract,
+            authors: paper.authors.join("; "),
+            primary_category: paper.primaryCategory || null,
+            arxiv_id: paper.id || null,
+        },
+        params: { limit },
+        token,
+    });
+}
+
 // Session API functions
 export async function getSessions(
     token?: string | null
