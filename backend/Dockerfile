@@ -7,4 +7,4 @@ RUN uv sync --no-dev --no-cache --no-install-project
 
 EXPOSE 8000
 
-CMD ["bash", "start.sh"]
+CMD ["python", "run.py"]
