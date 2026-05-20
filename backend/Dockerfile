@@ -5,6 +5,8 @@ WORKDIR /app
 
 RUN uv sync
 
-EXPOSE 8000
+ENV PORT=${PORT:-10000}
+
+EXPOSE $PORT
 
 CMD ["uv", "run", "python", "run.py"]
