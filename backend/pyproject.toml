@@ -121,3 +121,6 @@ explicit = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.fastapi]
+entrypoint = "main:app"
