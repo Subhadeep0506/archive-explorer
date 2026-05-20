@@ -68,9 +68,9 @@ export async function searchArxivPapers(
     maxResults: number = 10,
     token?: string | null,
 ): Promise<ArxivEntry[]> {
-    return apiRequest<ArxivEntry[]>("/arxiv/search", {
+    return apiRequest<ArxivEntry[]>("/arxiv/catalog/search", {
         params: {
-            search_query: searchQuery,
+            q: searchQuery,
             start,
             max_results: maxResults,
         },

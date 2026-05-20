@@ -17,7 +17,7 @@ _client: QdrantClient | None = None
 def _create_client() -> QdrantClient:
     return QdrantClient(
         url=os.environ["QDRANT_URI"],
-        port=int(os.environ.get("QDRANT_PORT", "6333")),
+        # port=int(os.environ.get("QDRANT_PORT", "6333")),
         api_key=os.environ["QDRANT_API_KEY"],
         cloud_inference=True,
         check_compatibility=False,
@@ -102,7 +102,7 @@ def ensure_collections_exist() -> None:
     (common on Windows when Qdrant Cloud closes idle sockets).
     """
     client = None
-    for attempt in range(5):
+    for attempt in range(3):
         try:
             client = get_qdrant_client()
             client.get_collections()
@@ -110,12 +110,12 @@ def ensure_collections_exist() -> None:
         except (ResponseHandlingException, Exception) as exc:
             delay = (attempt + 1) * 2
             logger.warning(
-                f"Qdrant connection attempt {attempt + 1}/5 failed: {exc} — retrying in {delay}s",
+                f"Qdrant connection attempt {attempt + 1}/3 failed: {exc} — retrying in {delay}s",
             )
             time.sleep(delay)
             client = reset_qdrant_client()
     else:
-        logger.error("Could not connect to Qdrant after 5 attempts, skipping collection setup")
+        logger.error("Could not connect to Qdrant after 3 attempts, skipping collection setup")
         return
 
     if not client.collection_exists(CATALOG_COLLECTION):
