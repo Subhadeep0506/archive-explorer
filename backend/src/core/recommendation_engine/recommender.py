@@ -179,6 +179,30 @@ async def get_feed_recommendations(
     return items[offset : offset + limit]
 
 
+async def search_catalog(
+    query: str,
+    offset: int = 0,
+    limit: int = 20,
+) -> list[dict]:
+    """Free-text vector search over the catalog collection."""
+    fetch_count = offset + limit
+
+    results = await _qdrant_query(
+        "query_points",
+        collection_name=CATALOG_COLLECTION,
+        query=Document(
+            text=query,
+            model=CATALOG_EMBED_MODEL,
+        ),
+        using=CATALOG_EMBED_MODEL,
+        limit=fetch_count,
+        with_payload=True,
+    )
+
+    items = [_point_to_dict(p) for p in results.points]
+    return items[offset : offset + limit]
+
+
 def rerank_results(
     candidates: list[dict],
     user_saved_categories: list[str],

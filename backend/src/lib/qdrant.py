@@ -17,7 +17,7 @@ _client: QdrantClient | None = None
 def _create_client() -> QdrantClient:
     return QdrantClient(
         url=os.environ["QDRANT_URI"],
-        port=int(os.environ.get("QDRANT_PORT", "443")),
+        port=int(os.environ.get("QDRANT_PORT", "6333")),
         api_key=os.environ["QDRANT_API_KEY"],
         cloud_inference=True,
         check_compatibility=False,

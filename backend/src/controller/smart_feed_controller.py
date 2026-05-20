@@ -8,6 +8,7 @@ from ..controller.catalog_controller import get_feed
 from ..core.recommendation_engine.recommender import (
     get_feed_recommendations,
     rerank_results,
+    search_catalog,
 )
 from ..core.logger import SingletonLogger
 
@@ -40,6 +41,19 @@ def _qdrant_results_to_entries(items: list[dict]) -> list[ArxivEntry]:
             )
         )
     return entries
+
+
+async def search_catalog_papers(
+    query: str,
+    start: int = 0,
+    limit: int = 20,
+) -> list[ArxivEntry]:
+    try:
+        results = await search_catalog(query=query, offset=start, limit=limit)
+        return _qdrant_results_to_entries(results)
+    except Exception as exc:
+        logger.error("Catalog search failed: %s", exc)
+        raise
 
 
 async def get_smart_feed(

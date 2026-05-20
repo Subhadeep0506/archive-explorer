@@ -12,7 +12,7 @@ from ..controller.arxiv import (
     create_pdf_thumbnail,
 )
 from ..controller.catalog_controller import get_feed
-from ..controller.smart_feed_controller import get_smart_feed
+from ..controller.smart_feed_controller import get_smart_feed, search_catalog_papers
 from ..controller.recommendation_controller import get_recommendations_by_metadata
 from ..schema.arxiv import ArxivEntry, ThumbnailRequest, ThumbnailResponse
 from ..schema.paper import RecommendationRequest, RecommendationsResponse
@@ -92,6 +92,17 @@ async def catalog_feed(
 ):
     """Fetch papers from the local ArXiv catalog (PostgreSQL-backed) by primary category."""
     return await get_feed(topics=topics, start=start, limit=limit)
+
+
+@router.get("/catalog/search", response_model=List[ArxivEntry])
+async def catalog_search(
+    q: str = Query(..., description="Free-text search query"),
+    start: int = 0,
+    max_results: int = 20,
+    _: int = Depends(get_current_user),
+):
+    """Search the local Qdrant catalog by semantic similarity."""
+    return await search_catalog_papers(query=q, start=start, limit=max_results)
 
 
 @router.get("/smart-feed", response_model=List[ArxivEntry])
