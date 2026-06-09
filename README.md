@@ -8,12 +8,7 @@ Arxiver helps researchers and engineers discover relevant papers, get instant AI
 
 ## Demo
 
-<video
-  src="https://player.cloudinary.com/embed/?cloud_name=dri5mztfe&public_id=arxplorer-demo_gsycbt"
-  width="640"
-  height="360" 
-  controls
-></video>
+<video src="https://player.cloudinary.com/embed/?cloud_name=dri5mztfe&public_id=arxplorer-demo_gsycbt" width="640" height="360" controls></video>
 
 ---
 
