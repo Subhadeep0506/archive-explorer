@@ -60,6 +60,12 @@ class UserSettingsBase(BaseModel):
     usability_analysis_instructions: Optional[str] = Field(
         None, description="Custom instructions for usability analysis"
     )
+    summary_model: Optional[str] = Field(
+        None, description="Selected model for paper summary generation"
+    )
+    usability_model: Optional[str] = Field(
+        None, description="Selected model for usability analysis"
+    )
 
 
 class UserSettingsCreate(UserSettingsBase):
@@ -79,6 +85,12 @@ class UserSettingsUpdate(BaseModel):
     )
     usability_analysis_instructions: Optional[str] = Field(
         None, description="Custom instructions for usability analysis"
+    )
+    summary_model: Optional[str] = Field(
+        None, description="Selected model for paper summary generation"
+    )
+    usability_model: Optional[str] = Field(
+        None, description="Selected model for usability analysis"
     )
     api_keys_encrypted: Optional[list[ApiKeyItem]] = Field(
         None, description="List of encrypted API keys"

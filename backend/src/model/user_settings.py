@@ -29,6 +29,8 @@ class UserSettings(Base, TimestampMixin):
     usability_analysis_instructions: Mapped[str | None] = mapped_column(
         String, nullable=True
     )
+    summary_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    usability_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
     api_keys_encrypted: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
 
     if TYPE_CHECKING:

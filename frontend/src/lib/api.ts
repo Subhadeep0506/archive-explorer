@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = "http://localhost:8000/api/v1";
+const DEFAULT_BASE_URL = "https://denct-arxplorer.hf.space/api/v1";
 
 export const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "")
     || DEFAULT_BASE_URL;

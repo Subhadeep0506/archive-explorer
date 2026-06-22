@@ -77,6 +77,8 @@ class UsabilityEngine:
                 model=llm,
                 response_format=UsabilitySchema,
             )
+            full_content = ""
+
             if arxiv_id:
                 filter_condition = models.Filter(
                     must=[
@@ -94,8 +96,18 @@ class UsabilityEngine:
                 )
                 sorted_docs = await UsabilityEngine._sort_docs(docs)
                 full_content = "\n\n".join([doc.page_content for doc in sorted_docs])
+
+                if not full_content.strip() and pdf_url:
+                    logger.info(
+                        "No indexed content found for paper %s usability. Falling back to PDF URL.",
+                        arxiv_id,
+                    )
+                    full_content = await load_pdf_content(pdf_url)
             elif pdf_url:
                 full_content = await load_pdf_content(pdf_url)
+
+            if not full_content.strip():
+                raise ValueError("No paper content available for usability generation")
 
             final_usability_json = await UsabilityEngine.__generate_summary(
                 agent, full_content

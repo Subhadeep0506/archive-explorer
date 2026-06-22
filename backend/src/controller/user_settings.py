@@ -69,6 +69,8 @@ class UserSettingsController:
         location: Optional[str] = None,
         custom_summary_instructions: Optional[str] = None,
         usability_analysis_instructions: Optional[str] = None,
+        summary_model: Optional[str] = None,
+        usability_model: Optional[str] = None,
         api_keys: Optional[list[dict]] = None,
     ) -> UserSettings:
         """
@@ -90,6 +92,8 @@ class UserSettingsController:
             location=location,
             custom_summary_instructions=custom_summary_instructions,
             usability_analysis_instructions=usability_analysis_instructions,
+            summary_model=summary_model,
+            usability_model=usability_model,
         )
 
         if api_keys:
@@ -150,6 +154,8 @@ class UserSettingsController:
                 location=settings_data.location,
                 custom_summary_instructions=settings_data.custom_summary_instructions,
                 usability_analysis_instructions=settings_data.usability_analysis_instructions,
+                summary_model=settings_data.summary_model,
+                usability_model=settings_data.usability_model,
                 api_keys=api_keys,
             )
             return settings

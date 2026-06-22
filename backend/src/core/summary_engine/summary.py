@@ -25,6 +25,8 @@ class SummaryEngine:
             vector_store = VectorStoreFactory.build_vector_store(
                 embedding_model=embedding
             )
+            full_content = ""
+
             if arxiv_id:
                 filter_condition = models.Filter(
                     must=[
@@ -42,8 +44,18 @@ class SummaryEngine:
                 )
                 sorted_docs = await SummaryEngine._sort_docs(docs)
                 full_content = "\n\n".join([doc.page_content for doc in sorted_docs])
+
+                if not full_content.strip() and pdf_url:
+                    logger.info(
+                        "No indexed content found for paper %s. Falling back to PDF URL.",
+                        arxiv_id,
+                    )
+                    full_content = await load_pdf_content(pdf_url)
             elif pdf_url:
                 full_content = await load_pdf_content(pdf_url)
+
+            if not full_content.strip():
+                raise ValueError("No paper content available for summary generation")
 
             encoding = tiktoken.get_encoding("cl100k_base")
             tokens = encoding.encode(full_content)
