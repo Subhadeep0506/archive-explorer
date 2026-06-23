@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from ..database.db import session_pool
 from ..errors import DatabaseConnectionError
 from ..model.message import Message
+from ..model.chat_session import Session as ChatSession
 from ..schema.message import MessageCreate, MessageUpdate, MessageResponse
 from ..schema.source import SourceResponse
 from ..core.logger import SingletonLogger
@@ -79,6 +80,8 @@ async def get_message(message_id: int, user_id: int) -> MessageResponse:
             message = result.scalar_one_or_none()
             if not message:
                 raise HTTPException(status_code=404, detail="Message not found")
+            if message.user_id != user_id:
+                raise HTTPException(status_code=403, detail="Not authorized")
 
             return MessageResponse(
                 id=message.id,
@@ -129,6 +132,15 @@ async def get_messages_by_session(
     """Retrieve all messages for a session."""
     try:
         async with session_pool() as session:
+            chat_session = await session.execute(
+                select(ChatSession).where(ChatSession.id == session_id)
+            )
+            chat_session_obj = chat_session.scalar_one_or_none()
+            if not chat_session_obj:
+                raise HTTPException(status_code=404, detail="Session not found")
+            if chat_session_obj.user_id != user_id:
+                raise HTTPException(status_code=403, detail="Not authorized")
+
             result = await session.execute(
                 select(Message)
                 .where(Message.session_id == session_id)
@@ -196,6 +208,8 @@ async def update_message(
             message = result.scalar_one_or_none()
             if not message:
                 raise HTTPException(status_code=404, detail="Message not found")
+            if message.user_id != user_id:
+                raise HTTPException(status_code=403, detail="Not authorized")
 
             # Update fields only if provided
             if payload.content is not None:
@@ -269,6 +283,8 @@ async def delete_message(message_id: int, user_id: int) -> None:
             message = result.scalar_one_or_none()
             if not message:
                 raise HTTPException(status_code=404, detail="Message not found")
+            if message.user_id != user_id:
+                raise HTTPException(status_code=403, detail="Not authorized")
 
             await session.delete(message)
             await session.commit()

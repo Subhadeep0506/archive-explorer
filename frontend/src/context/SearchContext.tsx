@@ -1,6 +1,8 @@
 import {
   createContext,
+  useCallback,
   useContext,
+  useMemo,
   useState,
   ReactNode,
   Dispatch,
@@ -37,35 +39,47 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const resetSearch = () => {
+  const resetSearch = useCallback(() => {
     setSearchQuery("");
     setSearchResults([]);
     setCurrentStart(0);
     setHasMore(false);
     setIsSearching(false);
     setIsLoadingMore(false);
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      isDialogOpen,
+      setIsDialogOpen,
+      searchQuery,
+      setSearchQuery,
+      searchResults,
+      setSearchResults,
+      currentStart,
+      setCurrentStart,
+      hasMore,
+      setHasMore,
+      isSearching,
+      setIsSearching,
+      isLoadingMore,
+      setIsLoadingMore,
+      resetSearch,
+    }),
+    [
+      isDialogOpen,
+      searchQuery,
+      searchResults,
+      currentStart,
+      hasMore,
+      isSearching,
+      isLoadingMore,
+      resetSearch,
+    ]
+  );
 
   return (
-    <SearchContext.Provider
-      value={{
-        isDialogOpen,
-        setIsDialogOpen,
-        searchQuery,
-        setSearchQuery,
-        searchResults,
-        setSearchResults,
-        currentStart,
-        setCurrentStart,
-        hasMore,
-        setHasMore,
-        isSearching,
-        setIsSearching,
-        isLoadingMore,
-        setIsLoadingMore,
-        resetSearch,
-      }}
-    >
+    <SearchContext.Provider value={value}>
       {children}
     </SearchContext.Provider>
   );

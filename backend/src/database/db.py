@@ -15,7 +15,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    sys.exit(0)
     raise ValueError("DATABASE_URL environment variable is not set.")
 else:
     DATABASE_URL = str(DATABASE_URL)

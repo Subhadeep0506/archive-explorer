@@ -50,6 +50,7 @@ class LLMFactory:
             if not api_key:
                 provider_names = {
                     "gemini": "Google Gemini",
+                    "cohere": "Cohere",
                     "groq": "Groq",
                     "openrouter": "OpenRouter",
                 }
@@ -93,6 +94,8 @@ class LLMFactory:
                     max_completion_tokens=max_tokens,
                     streaming=streaming,
                 )
+            else:
+                raise ValueError(f"Unsupported LLM provider: {provider}")
             return llm
         except Exception as e:
             logger.error(f"Error building LLM: {e}")

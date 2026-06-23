@@ -37,8 +37,6 @@ from src.router.user_settings import router as user_settings_router
 
 from src.model import *
 
-app = FastAPI()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -106,9 +104,11 @@ app = FastAPI(
 )
 security_scheme = HTTPBearer()
 
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:8080,http://localhost:5173").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -164,10 +164,10 @@ export default function ChatScreen() {
 
   // Initialize active session from URL, sessionStorage, or null
   const [activeSessionId, setActiveSessionId] = useState<number | null>(() => {
-    if (initialConvId) return parseInt(initialConvId);
+    if (initialConvId) return parseInt(initialConvId, 10);
     if (paperId) {
       const stored = sessionStorage.getItem(`chat-session-${paperId}`);
-      return stored ? parseInt(stored) : null;
+      return stored ? parseInt(stored, 10) : null;
     }
     return null;
   });
@@ -265,7 +265,7 @@ export default function ChatScreen() {
       ? sessionStorage.getItem(`chat-session-${paperId}`)
       : null;
     const storedSession = storedSessionId
-      ? paperSessions.find((s) => s.id === parseInt(storedSessionId))
+      ? paperSessions.find((s) => s.id === parseInt(storedSessionId, 10))
       : null;
 
     if (storedSession && !activeSessionId) {
@@ -395,7 +395,7 @@ export default function ChatScreen() {
 
   const handleSelectConversation = (id: string) => {
     setStreamingState({ nodes: [], finalResponse: "" });
-    setActiveSessionId(parseInt(id));
+    setActiveSessionId(parseInt(id, 10));
   };
 
   const handleSendMessage = async (content: string) => {
@@ -770,7 +770,7 @@ export default function ChatScreen() {
     }
 
     try {
-      await updateMessage(parseInt(messageId), { liked: liked }, accessToken);
+      await updateMessage(parseInt(messageId, 10), { liked: liked }, accessToken);
       // Refresh messages to show updated like status
       await refetchMessages();
     } catch (error) {
@@ -795,7 +795,7 @@ export default function ChatScreen() {
 
     try {
       await updateMessage(
-        parseInt(messageId),
+        parseInt(messageId, 10),
         { feedback, stars },
         accessToken,
       );

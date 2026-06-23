@@ -8,6 +8,15 @@ export const REFRESH_TOKEN_KEY = "arxiver.refresh_token";
 export const USER_KEY = "arxiver.user";
 const SETTINGS_KEY = "user_settings";
 
+export class ApiError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+        super(message);
+        this.name = "ApiError";
+        this.status = status;
+    }
+}
+
 type ApiPrimitive = string | number | boolean | undefined | null;
 type ApiParam = ApiPrimitive | ApiPrimitive[];
 
@@ -162,7 +171,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
             const newAccessToken = await refreshAccessToken();
             if (newAccessToken) {
                 // Retry the request with the new token
-                const retryHeaders = new Headers(headers ?? {});
+                const retryHeaders = new Headers(finalHeaders);
                 retryHeaders.set("Authorization", `Bearer ${newAccessToken}`);
 
                 response = await fetch(url, {
@@ -179,10 +188,10 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
         try {
             const errorData = await response.json();
             message = errorData?.detail || errorData?.message || message;
-        } catch (error) {
+        } catch {
             // Ignore JSON parse errors; fallback to status text
         }
-        throw new Error(message);
+        throw new ApiError(message, response.status);
     }
 
     if (response.status === 204) {
@@ -202,7 +211,7 @@ export async function getProfile(token?: string | null): Promise<import("@/types
     try {
         return await apiRequest("/profile", { token });
     } catch (error) {
-        if (error instanceof Error && 'status' in error && error.status === 404) {
+        if (error instanceof ApiError && error.status === 404) {
             return null;
         }
         throw error;

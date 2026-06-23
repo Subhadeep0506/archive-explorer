@@ -89,7 +89,7 @@ export default function SavedPapers() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["saved-papers"],
+    queryKey: ["savedPapers"],
     queryFn: () => getSavedPapers(accessToken),
     enabled: Boolean(accessToken),
   });
@@ -213,7 +213,7 @@ export default function SavedPapers() {
     },
     onSuccess: () => {
       toast.success("Paper deleted successfully!");
-      queryClient.invalidateQueries({ queryKey: ["saved-papers"] });
+      queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
       setPaperToDelete(null);
       setDeletingPaperId(null);
     },
@@ -248,7 +248,7 @@ export default function SavedPapers() {
     },
     onSuccess: () => {
       toast.success(`${selectedPapers.size} papers deleted successfully!`);
-      queryClient.invalidateQueries({ queryKey: ["saved-papers"] });
+      queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
       setSelectedPapers(new Set());
       setBulkDeleteMode(false);
     },
@@ -282,7 +282,7 @@ export default function SavedPapers() {
         id: context?.toastId,
       });
       // Refetch to update ingestion status immediately
-      queryClient.refetchQueries({ queryKey: ["saved-papers"], type: "active" });
+      queryClient.refetchQueries({ queryKey: ["savedPapers"], type: "active" });
     },
     onError: (error, paper, context) => {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -290,7 +290,7 @@ export default function SavedPapers() {
         id: context?.toastId,
       });
       // Refresh saved papers to update ingestion status
-      queryClient.invalidateQueries({ queryKey: ["saved-papers"] });
+      queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
     },
     onSettled: () => {
       setIngestingPaperId(null);

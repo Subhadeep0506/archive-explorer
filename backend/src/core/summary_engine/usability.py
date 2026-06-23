@@ -43,9 +43,12 @@ class UsabilitySchema(BaseModel):
 class UsabilityEngine:
     """UsabilityEngine class for generating summaries of papers."""
 
+    DEFAULT_MODEL = "groq/qwen3-32b"
+
     @staticmethod
     async def generate_paper_summary(
-        arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None
+        arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None,
+        model_name: Optional[str] = None,
     ) -> dict:
         """Generate a summary of the paper's usability, applicability, and reproducibility based on its content.
 
@@ -67,7 +70,7 @@ class UsabilityEngine:
                 embedding_model=embedding
             )
             llm = LLMFactory.build_llm(
-                model_name="groq/qwen3-32b",
+                model_name=model_name or UsabilityEngine.DEFAULT_MODEL,
                 max_tokens=4096,
                 reasoning="hidden",
                 request=request,

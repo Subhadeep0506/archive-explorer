@@ -16,9 +16,12 @@ logger = SingletonLogger().get_logger()
 class SummaryEngine:
     """SummaryEngine class for generating summaries of papers."""
 
+    DEFAULT_MODEL = "groq/qwen3-32b"
+
     @staticmethod
     async def generate_paper_summary(
-        arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None
+        arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None,
+        model_name: Optional[str] = None,
     ) -> str:
         try:
             embedding = EmbeddingFactory.build_embedding_model(request=request)
@@ -71,15 +74,15 @@ class SummaryEngine:
                     chunk_tokens = tokens[i : i + token_limit]
                     chunk_content = encoding.decode(chunk_tokens)
                     summary = await SummaryEngine.__generate_summary(
-                        chunk_content, request
+                        chunk_content, request, model_name
                     )
                     cumulative_summary += summary + "\n\n"
                 final_summary = await SummaryEngine.__generate_summary(
-                    cumulative_summary, request
+                    cumulative_summary, request, model_name
                 )
             else:
                 final_summary = await SummaryEngine.__generate_summary(
-                    full_content, request
+                    full_content, request, model_name
                 )
             return final_summary
         except Exception as e:
@@ -88,12 +91,13 @@ class SummaryEngine:
 
     @classmethod
     async def __generate_summary(
-        cls, content: str, request: Optional[Request] = None
+        cls, content: str, request: Optional[Request] = None,
+        model_name: Optional[str] = None,
     ) -> str:
         """Generate a summary of the given content."""
         try:
             llm = LLMFactory.build_llm(
-                model_name="groq/qwen3-32b",
+                model_name=model_name or cls.DEFAULT_MODEL,
                 max_tokens=4096,
                 reasoning="hidden",
                 request=request,

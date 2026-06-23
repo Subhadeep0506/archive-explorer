@@ -26,10 +26,13 @@ async def create_paper(
     """Create a paper entry and automatically generate thumbnail."""
     try:
         async with session_pool() as session:
-            # Prevent duplicates by arxiv_id (only if arxiv_id is provided)
+            # Prevent duplicates by (user_id, arxiv_id)
             if payload.arxiv_id:
                 existing = await session.execute(
-                    select(Paper).where(Paper.arxiv_id == payload.arxiv_id)
+                    select(Paper).where(
+                        Paper.arxiv_id == payload.arxiv_id,
+                        Paper.user_id == user_id,
+                    )
                 )
                 if existing.scalar_one_or_none():
                     raise HTTPException(status_code=400, detail="Paper already exists")

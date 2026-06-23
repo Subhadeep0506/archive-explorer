@@ -7,7 +7,8 @@ load_dotenv()
 
 from logging.config import fileConfig
 
-from sqlalchemy import pool
+from sqlalchemy import pool, types as sa_types
+from sqlalchemy.dialects.postgresql import JSON, JSONB
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
@@ -33,6 +34,21 @@ if config.config_file_name is not None:
 
 # Add your model's MetaData object here
 target_metadata = Base.metadata
+
+
+def _compare_server_default(context, inspected_column, metadata_column,
+                            inspected_default, metadata_default, rendered_metadata_default):
+    """Skip server-default comparison for JSON/JSONB columns.
+
+    PostgreSQL has no equality operator for json, so Alembic's
+    default comparison (`SELECT '{}'::json = '{}'`) raises
+    ProgrammingError.  Returning False tells Alembic "no change".
+    """
+    col_type = metadata_column.type
+    if isinstance(col_type, (JSON, JSONB, sa_types.JSON)):
+        return False
+    # Return None to let Alembic use its built-in comparison for other types
+    return None
 
 
 def get_url() -> str:
@@ -70,7 +86,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
-        compare_server_default=True,
+        compare_server_default=_compare_server_default,
         include_object=include_object,  # Add the filter
     )
 
@@ -117,7 +133,7 @@ def _do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
-        compare_server_default=True,
+        compare_server_default=_compare_server_default,
         include_object=include_object,  # Add the filter
     )
 
