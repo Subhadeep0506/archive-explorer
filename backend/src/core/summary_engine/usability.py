@@ -38,6 +38,10 @@ class UsabilitySchema(BaseModel):
         ge=0.0,
         description="Composite impact based on explained innovation over domains. Give detailed overall score with dense value. E.g 0.83",
     )
+    impact_score_description: str = Field(
+        default="",
+        description="Short description on how this score explains the impact score; e.g. 'Strong fit for cost-efficient inference deployment', 'Memory efficient Agentic RL training; Domain agnostic', 'Can be used to optimize finance applications; needs several manual effort'"
+    )
 
 
 class UsabilityEngine:
@@ -62,7 +66,7 @@ class UsabilityEngine:
             e: If any other error occurs.
 
         Returns:
-            dict: A dictionary containing the usability summary with keys 'domain_applicability', 'reproducibility_score', 'new_tech_applicability', and 'impact_score'.
+            dict: A dictionary containing the usability summary with keys 'domain_applicability', 'reproducibility_score', 'new_tech_applicability', 'impact_score' and 'impact_score_description'.
         """
         try:
             embedding = EmbeddingFactory.build_embedding_model(request=request)
