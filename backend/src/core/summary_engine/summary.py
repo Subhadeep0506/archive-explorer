@@ -110,7 +110,13 @@ class SummaryEngine:
                 {"role": "user", "content": content},
             ]
             response = await llm.ainvoke(messages)
-            return response.content if isinstance(response.content, str) else str(response.content[0])
+            if isinstance(response.content, str):
+                return response.content
+            else:
+                if isinstance(response.content[0], str):
+                    return str(response.content[0])
+                else:
+                    return str(response.content[0]["text"])
         except Exception as e:
             logger.error(f"Error in __generate_summary: {str(e)}")
             raise e
