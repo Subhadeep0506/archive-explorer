@@ -1,4 +1,5 @@
 import os
+import sys
 from contextlib import asynccontextmanager
 import asyncio
 import time
@@ -12,6 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set.")
+else:
+    DATABASE_URL = str(DATABASE_URL)
 
 # Pool configuration: allow overrides via env vars
 POOL_SIZE = int(os.getenv("DB_POOL_SIZE", 5))

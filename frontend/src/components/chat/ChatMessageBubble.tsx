@@ -41,6 +41,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { PdfViewer } from "@/components/ui/pdf-viewer";
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/github-dark.css";
 
@@ -267,7 +268,7 @@ export function ChatMessageBubble({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
-                  className="w-[380px] p-0 overflow-hidden"
+                  className="w-95 p-0 overflow-hidden"
                   align="start"
                   sideOffset={8}
                 >
@@ -296,7 +297,7 @@ export function ChatMessageBubble({
                                 <FileText className="w-3.5 h-3.5 text-muted-foreground" />
                               )}
                             </div>
-                            <div className="flex-1 min-w-0 space-y-1 max-w-[300px]">
+                            <div className="flex-1 min-w-0 space-y-1 max-w-75">
                               {source.source_url && (
                                 <div
                                   className="text-xs font-medium text-primary hover:underline break-all line-clamp-2"
@@ -323,7 +324,7 @@ export function ChatMessageBubble({
                                 {source.source_type && (
                                   <Badge
                                     variant="secondary"
-                                    className="text-[10px] h-4 truncate max-w-[120px]"
+                                    className="text-[10px] h-4 truncate max-w-30"
                                   >
                                     {source.source_type}
                                   </Badge>
@@ -369,35 +370,42 @@ export function ChatMessageBubble({
                         Token Usage
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="space-y-1">
-                      {metadata.prompt_tokens !== undefined && (
-                        <div className="flex justify-between gap-4 text-xs">
-                          <span className="text-muted-foreground">
-                            Prompt tokens:
-                          </span>
-                          <Badge variant="secondary" className="text-xs">
-                            {metadata.prompt_tokens.toLocaleString()}
-                          </Badge>
-                        </div>
-                      )}
-                      {metadata.completion_tokens !== undefined && (
-                        <div className="flex justify-between gap-4 text-xs">
-                          <span className="text-muted-foreground">
-                            Completion tokens:
-                          </span>
-                          <Badge variant="secondary" className="text-xs">
-                            {metadata.completion_tokens.toLocaleString()}
-                          </Badge>
-                        </div>
-                      )}
-                      {metadata.total_tokens !== undefined && (
-                        <div className="flex justify-between gap-4 text-xs font-medium pt-1 border-t">
-                          <span>Total:</span>
-                          <Badge variant="default" className="text-xs">
-                            {metadata.total_tokens.toLocaleString()}
-                          </Badge>
-                        </div>
-                      )}
+                    <TooltipContent
+                      side="top"
+                      className="w-[12vw] bg-popover text-popover-foreground border border-border"
+                    >
+                      <div className="space-y-2">
+                        {metadata.prompt_tokens !== undefined && (
+                          <div className="flex items-center justify-between gap-8">
+                            <span className="text-xs text-muted-foreground">
+                              Prompt tokens
+                            </span>
+                            <span className="text-sm font-semibold font-mono">
+                              {metadata.prompt_tokens.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {metadata.completion_tokens !== undefined && (
+                          <div className="flex items-center justify-between gap-8">
+                            <span className="text-xs text-muted-foreground">
+                              Completion tokens
+                            </span>
+                            <span className="text-sm font-semibold font-mono">
+                              {metadata.completion_tokens.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {metadata.total_tokens !== undefined && (
+                          <div className="flex items-center justify-between gap-8 border-t border-border pt-2">
+                            <span className="text-xs text-muted-foreground">
+                              Total tokens
+                            </span>
+                            <span className="text-sm font-semibold font-mono">
+                              {metadata.total_tokens.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -480,19 +488,13 @@ export function ChatMessageBubble({
 
       {/* PDF Preview Dialog */}
       <Dialog open={pdfDialogOpen} onOpenChange={setPdfDialogOpen}>
-        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
+        <DialogContent className="max-w-4xl min-w-[70vw] h-[95vh] flex flex-col p-0">
           <DialogHeader className="px-6 pt-6 pb-2">
             <DialogTitle>Source Document</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 px-6 pb-6">
+          <div className="flex-1 overflow-hidden px-6 pb-6">
             {selectedPdfUrl && (
-              <embed
-                key={selectedPdfUrl}
-                src={selectedPdfUrl}
-                type="application/pdf"
-                className="w-full h-full rounded border"
-                title="PDF Viewer"
-              />
+              <PdfViewer key={selectedPdfUrl} url={selectedPdfUrl} />
             )}
           </div>
         </DialogContent>

@@ -4,7 +4,7 @@ Simple authentication with hardcoded admin:admin credentials.
 """
 
 from typing import Optional
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from src.model import User, ServiceCatalog, ResourceCatalog
@@ -95,14 +95,14 @@ class AdminController:
     @staticmethod
     async def get_user_count(session: AsyncSession) -> int:
         """Get total user count."""
-        result = await session.execute(select(User))
-        return len(result.scalars().all())
+        result = await session.execute(select(func.count()).select_from(User))
+        return result.scalar_one()
 
     @staticmethod
     async def get_service_count(session: AsyncSession) -> int:
         """Get total service count."""
-        result = await session.execute(select(ServiceCatalog))
-        return len(result.scalars().all())
+        result = await session.execute(select(func.count()).select_from(ServiceCatalog))
+        return result.scalar_one()
 
     # ==================== Resource Catalog Methods ====================
 
@@ -200,5 +200,5 @@ class AdminController:
     @staticmethod
     async def get_resource_count(session: AsyncSession) -> int:
         """Get total resource count."""
-        result = await session.execute(select(ResourceCatalog))
-        return len(result.scalars().all())
+        result = await session.execute(select(func.count()).select_from(ResourceCatalog))
+        return result.scalar_one()

@@ -1,0 +1,56 @@
+export interface ArxivCategory {
+    code: string;
+    label: string;
+}
+
+export const ARXIV_CS_CATEGORIES: ArxivCategory[] = [
+    { code: "cs.AI", label: "Artificial Intelligence" },
+    { code: "cs.AR", label: "Hardware Architecture" },
+    { code: "cs.CC", label: "Computational Complexity" },
+    { code: "cs.CE", label: "Computational Engineering, Finance, and Science" },
+    { code: "cs.CG", label: "Computational Geometry" },
+    { code: "cs.CL", label: "Computation and Language" },
+    { code: "cs.CR", label: "Cryptography and Security" },
+    { code: "cs.CV", label: "Computer Vision and Pattern Recognition" },
+    { code: "cs.CY", label: "Computers and Society" },
+    { code: "cs.DB", label: "Databases" },
+    { code: "cs.DC", label: "Distributed, Parallel, and Cluster Computing" },
+    { code: "cs.DL", label: "Digital Libraries" },
+    { code: "cs.DM", label: "Discrete Mathematics" },
+    { code: "cs.DS", label: "Data Structures and Algorithms" },
+    { code: "cs.ET", label: "Emerging Technologies" },
+    { code: "cs.FL", label: "Formal Languages and Automata Theory" },
+    { code: "cs.GL", label: "General Literature" },
+    { code: "cs.GR", label: "Graphics" },
+    { code: "cs.GT", label: "Computer Science and Game Theory" },
+    { code: "cs.HC", label: "Human-Computer Interaction" },
+    { code: "cs.IR", label: "Information Retrieval" },
+    { code: "cs.IT", label: "Information Theory" },
+    { code: "cs.LG", label: "Machine Learning" },
+    { code: "cs.LO", label: "Logic in Computer Science" },
+    { code: "cs.MA", label: "Multiagent Systems" },
+    { code: "cs.MM", label: "Multimedia" },
+    { code: "cs.MS", label: "Mathematical Software" },
+    { code: "cs.NA", label: "Numerical Analysis" },
+    { code: "cs.NE", label: "Neural and Evolutionary Computing" },
+    { code: "cs.NI", label: "Networking and Internet Architecture" },
+    { code: "cs.OH", label: "Other Computer Science" },
+    { code: "cs.OS", label: "Operating Systems" },
+    { code: "cs.PF", label: "Performance" },
+    { code: "cs.PL", label: "Programming Languages" },
+    { code: "cs.RO", label: "Robotics" },
+    { code: "cs.SC", label: "Symbolic Computation" },
+    { code: "cs.SD", label: "Sound" },
+    { code: "cs.SE", label: "Software Engineering" },
+    { code: "cs.SI", label: "Social and Information Networks" },
+    { code: "cs.SY", label: "Systems and Control" },
+    { code: "stat.ML", label: "Machine Learning (Statistics)" },
+    { code: "stat.TH", label: "Statistics Theory" },
+    { code: "eess.AS", label: "Audio and Speech Processing" },
+    { code: "eess.IV", label: "Image and Video Processing" },
+    { code: "eess.SP", label: "Signal Processing" },
+];
+
+export const VALID_CATEGORY_CODES = new Set(
+    ARXIV_CS_CATEGORIES.map((c) => c.code),
+);

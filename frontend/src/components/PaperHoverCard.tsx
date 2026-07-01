@@ -19,13 +19,13 @@ export function PaperHoverCard({ paper }: PaperHoverCardProps) {
   const institutionLabel = paper.institution || paper.primaryCategory || "arXiv";
 
   return (
-    <div className="pointer-events-none w-96 rounded-lg border border-border bg-background/95 backdrop-blur-sm shadow-2xl p-5 animate-in fade-in zoom-in-95 duration-200">
+    <div className="w-full rounded-lg bg-card p-5">
       {/* Header with title and date */}
       <div className="space-y-3 mb-4">
-        <h3 className="font-bold text-base leading-tight line-clamp-3 text-foreground">
+        <h3 className="font-bold text-base leading-tight line-clamp-3 text-card-foreground">
           {paper.title}
         </h3>
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
           <span className="flex items-center gap-1">
             <Calendar className="w-3.5 h-3.5" />
             {formattedDate}
@@ -42,9 +42,11 @@ export function PaperHoverCard({ paper }: PaperHoverCardProps) {
         <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
           Abstract
         </p>
-        <p className="text-sm text-foreground/80 line-clamp-5 leading-relaxed">
-          {paper.abstract || "Abstract not available"}
-        </p>
+        <div className="max-h-48 overflow-y-auto scrollbar-styled">
+          <p className="text-sm text-card-foreground/80 leading-relaxed pr-2">
+            {paper.abstract || "Abstract not available"}
+          </p>
+        </div>
       </div>
 
       {/* Authors */}
@@ -53,7 +55,7 @@ export function PaperHoverCard({ paper }: PaperHoverCardProps) {
           <Users className="w-3.5 h-3.5" />
           Authors
         </p>
-        <p className="text-sm text-foreground/80 line-clamp-2">
+        <p className="text-sm text-card-foreground/80 line-clamp-2">
           {paper.authors.slice(0, 3).join(", ")}
           {paper.authors.length > 3 && ` +${paper.authors.length - 3} more`}
         </p>
@@ -77,9 +79,6 @@ export function PaperHoverCard({ paper }: PaperHoverCardProps) {
           )}
         </div>
       </div>
-
-      {/* Arrow indicator */}
-      <div className="absolute -left-2 top-6 w-0 h-0 border-l-[8px] border-r-0 border-t-[6px] border-b-[6px] border-l-background/95 border-t-transparent border-b-transparent" />
     </div>
   );
 }

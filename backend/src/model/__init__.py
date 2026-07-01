@@ -8,6 +8,8 @@ from .user import User
 from .user_settings import UserSettings
 from .service_catalog import ServiceCatalog
 from .resource_catalog import ResourceCatalog
+from .usability import Usability
+from .arxiv_catalog import ArxivCatalog
 
 __all__ = [
     "Session",
@@ -20,4 +22,6 @@ __all__ = [
     "UserSettings",
     "ServiceCatalog",
     "ResourceCatalog",
+    "Usability",
+    "ArxivCatalog",
 ]

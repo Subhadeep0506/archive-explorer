@@ -15,7 +15,7 @@ export function PdfPreviewPopover({ pdfUrl, children }: PdfPreviewPopoverProps) 
   return (
     <Popover>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-[500px] p-0" align="start" side="bottom">
+      <PopoverContent className="w-125 p-0" align="start" side="bottom">
         <div className="border-b p-3 flex items-center justify-between bg-muted/50">
           <span className="text-sm font-medium flex items-center gap-2">
             <FileText className="w-4 h-4 text-chip-coral" />
@@ -28,7 +28,7 @@ export function PdfPreviewPopover({ pdfUrl, children }: PdfPreviewPopoverProps) 
             </Button>
           </a>
         </div>
-        <div className="aspect-[3/4] bg-muted flex items-center justify-center">
+        <div className="aspect-3/4 bg-muted flex items-center justify-center">
           <div className="text-center p-8">
             <div className="w-20 h-28 mx-auto mb-4 bg-background rounded-lg shadow-lg flex items-center justify-center border">
               <FileText className="w-10 h-10 text-muted-foreground" />

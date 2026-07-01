@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface FilterChipProps {
   label: string;
@@ -49,10 +50,11 @@ export function FilterChip({
   const styles = colorStyles[color];
 
   return (
-    <button
+    <Button
       onClick={onClick}
+      variant="ghost"
       className={cn(
-        "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border transition-all duration-200",
+        "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border transition-all duration-200 h-auto",
         "hover:scale-105 hover:shadow-sm active:scale-100",
         isSelected ? styles.selected : styles.base,
       )}
@@ -66,6 +68,6 @@ export function FilterChip({
       >
         {count}
       </span>
-    </button>
+    </Button>
   );
 }

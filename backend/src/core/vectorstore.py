@@ -1,6 +1,5 @@
-import os
-
-from langchain_pinecone import PineconeVectorStore
+from langchain_qdrant import QdrantVectorStore
+from ..lib.qdrant import get_qdrant_client, CHUNKS_COLLECTION
 from ..core.logger import SingletonLogger
 
 logger = SingletonLogger().get_logger()
@@ -8,19 +7,13 @@ logger = SingletonLogger().get_logger()
 
 class VectorStoreFactory:
     @staticmethod
-    def build_vector_store(
-        embedding_model, index_name="arxiv-app"
-    ) -> PineconeVectorStore:
-        """Builds and returns the vector store."""
+    def build_vector_store(embedding_model) -> QdrantVectorStore:
         try:
-            vector_store = PineconeVectorStore(
+            return QdrantVectorStore(
+                client=get_qdrant_client(),
+                collection_name=CHUNKS_COLLECTION,
                 embedding=embedding_model,
-                index_name=index_name,
-                namespace="papers",
-                pinecone_api_key=os.getenv("PINECONE_API_KEY"),
-                host=os.getenv("PINECONE_URI"),
             )
-            return vector_store
         except Exception as e:
             logger.error(f"Error building vector store: {e}")
             raise e

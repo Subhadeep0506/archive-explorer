@@ -1,14 +1,13 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { apiRequest } from "@/lib/api";
 import { AuthResponse } from "@/types/auth";
 import { Loader2 } from "lucide-react";
 
 export default function GoogleCallback() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { handleAuthResponse } = useAuth();
   const [searchParams] = useSearchParams();
 
@@ -19,9 +18,7 @@ export default function GoogleCallback() {
       const storedState = sessionStorage.getItem("google_oauth_state");
 
       if (!code || !state) {
-        toast({
-          variant: "destructive",
-          title: "OAuth Error",
+        toast.error("OAuth Error", {
           description: "Missing authorization code or state parameter.",
         });
         navigate("/", { replace: true });
@@ -29,9 +26,7 @@ export default function GoogleCallback() {
       }
 
       if (state !== storedState) {
-        toast({
-          variant: "destructive",
-          title: "OAuth Error",
+        toast.error("OAuth Error", {
           description: "State parameter mismatch. Please try again.",
         });
         navigate("/", { replace: true });
@@ -48,17 +43,13 @@ export default function GoogleCallback() {
         );
 
         handleAuthResponse(response);
-        toast({
-          title: "Welcome!",
+        toast.success("Welcome!", {
           description: "Successfully signed in with Google.",
         });
         navigate("/app", { replace: true });
       } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Google Sign-in Failed",
-          description:
-            error instanceof Error ? error.message : "Please try again.",
+        toast.error("Google Sign-in Failed", {
+          description: error instanceof Error ? error.message : "Please try again.",
         });
         navigate("/", { replace: true });
       } finally {
@@ -67,7 +58,7 @@ export default function GoogleCallback() {
     };
 
     handleCallback();
-  }, [searchParams, navigate, toast, handleAuthResponse]);
+  }, [searchParams, navigate, handleAuthResponse]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#05060d]">

@@ -1,6 +1,8 @@
+from typing import Optional
+
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError, DBAPIError
-from fastapi import HTTPException, UploadFile
+from fastapi import BackgroundTasks, HTTPException, UploadFile
 import uuid
 
 from ..database.db import session_pool
@@ -9,6 +11,7 @@ from ..model.paper import Paper
 from ..schema.paper import PaperCreate, PaperResponse
 from ..core.logger import SingletonLogger
 from ..core.ingest_engine.ingestion import IngestionEngine
+from ..core.background_tasks import index_paper_background
 from ..lib.arxiv import generate_first_page_thumbnail
 from ..core.storage.supabase import SupabaseStorage
 from ..lib.enum import PaperSourceEnum
@@ -17,14 +20,19 @@ from ..lib.enum import PaperSourceEnum
 logger = SingletonLogger().get_logger()
 
 
-async def create_paper(user_id: int, payload: PaperCreate) -> PaperResponse:
+async def create_paper(
+    user_id: int, payload: PaperCreate, background_tasks: Optional[BackgroundTasks] = None
+) -> PaperResponse:
     """Create a paper entry and automatically generate thumbnail."""
     try:
         async with session_pool() as session:
-            # Prevent duplicates by arxiv_id (only if arxiv_id is provided)
+            # Prevent duplicates by (user_id, arxiv_id)
             if payload.arxiv_id:
                 existing = await session.execute(
-                    select(Paper).where(Paper.arxiv_id == payload.arxiv_id)
+                    select(Paper).where(
+                        Paper.arxiv_id == payload.arxiv_id,
+                        Paper.user_id == user_id,
+                    )
                 )
                 if existing.scalar_one_or_none():
                     raise HTTPException(status_code=400, detail="Paper already exists")
@@ -65,6 +73,11 @@ async def create_paper(user_id: int, payload: PaperCreate) -> PaperResponse:
                         f"Thumbnail generation failed for paper_id={paper.id}: {str(e)}"
                     )
 
+            if background_tasks and paper.title and paper.abstract:
+                background_tasks.add_task(
+                    index_paper_background, paper.id, paper.title, paper.abstract
+                )
+
             return PaperResponse(
                 id=paper.id,
                 user_id=paper.user_id,
@@ -84,6 +97,7 @@ async def create_paper(user_id: int, payload: PaperCreate) -> PaperResponse:
                 ingested=paper.ingested,
                 paper_summary=paper.paper_summary,
                 paper_source=paper.paper_source,
+                keywords=paper.keywords,
             )
     except HTTPException:
         raise
@@ -127,6 +141,7 @@ async def get_paper(paper_id: int, user_id: int) -> PaperResponse:
                 created_at=paper.created_at,
                 ingested=paper.ingested,
                 paper_summary=paper.paper_summary,
+                keywords=paper.keywords,
             )
     except HTTPException:
         raise
@@ -171,6 +186,7 @@ async def get_all_papers(user_id: int) -> list[PaperResponse]:
                     ingested=paper.ingested,
                     paper_summary=paper.paper_summary,
                     paper_source=paper.paper_source,
+                    keywords=paper.keywords,
                 )
                 for paper in papers
             ]
@@ -238,6 +254,7 @@ async def update_paper(
                 ingested=paper.ingested,
                 paper_summary=paper.paper_summary,
                 paper_source=paper.paper_source,
+                keywords=paper.keywords,
             )
     except HTTPException:
         raise
@@ -328,6 +345,7 @@ async def create_paper_from_upload(
     published_date: str | None = None,
     institution: str | None = None,
     date_published: str | None = None,
+    background_tasks: Optional[BackgroundTasks] = None,
 ) -> PaperResponse:
     """Create a paper from an uploaded PDF file."""
     try:
@@ -381,6 +399,11 @@ async def create_paper_from_upload(
                     f"Thumbnail generation failed for uploaded paper id={paper.id}: {str(e)}"
                 )
 
+            if background_tasks and paper.title and paper.abstract:
+                background_tasks.add_task(
+                    index_paper_background, paper.id, paper.title, paper.abstract
+                )
+
             return PaperResponse(
                 id=paper.id,
                 user_id=paper.user_id,
@@ -400,6 +423,7 @@ async def create_paper_from_upload(
                 ingested=paper.ingested,
                 paper_summary=paper.paper_summary,
                 paper_source=paper.paper_source,
+                keywords=paper.keywords,
             )
     except HTTPException:
         raise

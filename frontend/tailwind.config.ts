@@ -99,5 +99,18 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    function ({ addVariant }: any) {
+      addVariant("data-open", "&:where([data-state='open']), &:where([data-open]:not([data-open='false']))");
+      addVariant("data-closed", "&:where([data-state='closed']), &:where([data-closed]:not([data-closed='false']))");
+      addVariant("data-checked", "&:where([data-state='checked']), &:where([data-checked]:not([data-checked='false']))");
+      addVariant("data-unchecked", "&:where([data-state='unchecked']), &:where([data-unchecked]:not([data-unchecked='false']))");
+      addVariant("data-selected", "&:where([data-selected='true'])");
+      addVariant("data-disabled", "&:where([data-disabled='true']), &:where([data-disabled]:not([data-disabled='false']))");
+      addVariant("data-active", "&:where([data-state='active']), &:where([data-active]:not([data-active='false']))");
+      addVariant("data-horizontal", "&:where([data-orientation='horizontal'])");
+      addVariant("data-vertical", "&:where([data-orientation='vertical'])");
+    },
+  ],
 } satisfies Config;

@@ -11,7 +11,7 @@ class Profile(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("user.id"), nullable=False, index=True
+        ForeignKey("user.id"), nullable=False, index=True, unique=True
     )
     phone: Mapped[str | None] = mapped_column(String(13), nullable=True)
     avatar: Mapped[str | None] = mapped_column(String, nullable=True)

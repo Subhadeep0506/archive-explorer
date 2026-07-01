@@ -1,11 +1,14 @@
 import { ArxivEntry } from "@/types/arxiv";
-import { Paper, SavedPaper } from "@/types/paper";
+import { Paper, RecommendationItem, SavedPaper } from "@/types/paper";
+
+const stripVersionSuffix = (id: string): string => id.replace(/v\d+$/, "");
 
 export const normalizeArxivEntry = (entry: ArxivEntry): Paper => {
-    const fallbackId =
+    const rawId =
         entry.arxiv_id ||
         entry.id ||
         (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+    const fallbackId = stripVersionSuffix(rawId);
 
     return {
         id: fallbackId,
@@ -21,6 +24,27 @@ export const normalizeArxivEntry = (entry: ArxivEntry): Paper => {
         githubUrl: undefined,
         thumbnailUrl: entry.thumbnail_url || undefined,
         primaryCategory: entry.primary_category || undefined,
+        keywords: [],
+    };
+};
+
+export const normalizeRecommendationItem = (item: RecommendationItem): Paper => {
+    const authorStr = item.authors || "";
+    const authors = authorStr.includes(";")
+        ? authorStr.split(";").map(a => a.trim()).filter(Boolean)
+        : authorStr.split(",").map(a => a.trim()).filter(Boolean);
+
+    return {
+        id: item.arxiv_id || "",
+        title: item.title || "Untitled",
+        authors: authors.length > 0 ? authors : ["Unknown author"],
+        abstract: item.abstract || "",
+        date: item.published_date || "",
+        topics: item.categories ? item.categories.split(" ").filter(Boolean) : [],
+        primaryCategory: item.primary_category || undefined,
+        pdfUrl: item.pdf_url || "#",
+        htmlUrl: item.paper_url || undefined,
+        keywords: [],
     };
 };
 
@@ -40,5 +64,8 @@ export const normalizeSavedPaper = (savedPaper: SavedPaper): Paper => {
         thumbnailUrl: savedPaper.thumbnail_url || undefined,
         primaryCategory: savedPaper.institution || "arXiv",
         ingested: savedPaper.ingested,
+        keywords: savedPaper.keywords
+            ? savedPaper.keywords.split(",").map(k => k.trim()).filter(Boolean)
+            : [],
     };
 };

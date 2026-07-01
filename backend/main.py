@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 from dotenv import load_dotenv
 import psutil
@@ -18,6 +19,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.core.chat_engine.query import ChatEngine
 from src.core.chat_engine.agent_state import AgentState
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from src.lib.qdrant import ensure_collections_exist
+from src.core.background_tasks import backfill_missing_keywords
+from src.core.catalog_engine.update import run_daily_catalog_update
 from src.router.auth import router as auth_router
 from src.router.profile import router as profile_router
 from src.router.arxiv import router as arxiv_router
@@ -31,8 +36,6 @@ from src.router.admin import router as admin_router
 from src.router.user_settings import router as user_settings_router
 
 from src.model import *
-
-app = FastAPI()
 
 
 @asynccontextmanager
@@ -52,6 +55,33 @@ async def lifespan(app: FastAPI):
         raise
 
     try:
+        await asyncio.to_thread(ensure_collections_exist)
+        logger.info("Qdrant collections verified.")
+    except Exception as e:
+        logger.warning(f"Qdrant collection setup failed (non-fatal): {e}")
+
+    try:
+        backfilled = await backfill_missing_keywords()
+        if backfilled:
+            logger.info(f"Backfilled keywords for {backfilled} papers on startup.")
+    except Exception as e:
+        logger.warning(f"Keyword backfill failed (non-fatal): {e}")
+
+    scheduler = AsyncIOScheduler(timezone="UTC")
+    scheduler.add_job(
+        run_daily_catalog_update,
+        "cron",
+        hour=2,
+        minute=0,
+        misfire_grace_time=3600,
+        max_instances=1,
+        replace_existing=True,
+        id="daily_catalog_update",
+    )
+    scheduler.start()
+    logger.info("APScheduler started with daily catalog update at 02:00 UTC.")
+
+    try:
         # Build and compile the graph
         app.state.graph = await ChatEngine.build_graph()
         logger.info("Chat engine graph successfully built and initialized.")
@@ -61,6 +91,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error during application startup: {e}")
         raise
+    finally:
+        scheduler.shutdown(wait=False)
+        logger.info("APScheduler shut down.")
 
 
 app = FastAPI(
@@ -71,9 +104,11 @@ app = FastAPI(
 )
 security_scheme = HTTPBearer()
 
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:8080,http://localhost:5173").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

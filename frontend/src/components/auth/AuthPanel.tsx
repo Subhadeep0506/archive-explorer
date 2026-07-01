@@ -12,7 +12,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2, Mail, UserRound, Lock, Eye, EyeOff } from "lucide-react";
 import { LoginPayload, RegisterPayload } from "@/types/auth";
@@ -38,7 +38,6 @@ interface AuthPanelProps {
 }
 
 export const AuthPanel = ({ onSuccess }: AuthPanelProps) => {
-  const { toast } = useToast();
   const { login, register: registerUser, loginWithGoogle } = useAuth();
   const [mode, setMode] = useState<Mode>("login");
   const [loading, setLoading] = useState(false);
@@ -62,14 +61,11 @@ export const AuthPanel = ({ onSuccess }: AuthPanelProps) => {
     setLoading(true);
     try {
       await login(values as LoginPayload);
-      toast({ title: "Welcome back", description: "You're signed in." });
+      toast.success("Welcome back", { description: "You're signed in." });
       onSuccess?.();
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Unable to login",
-        description:
-          error instanceof Error ? error.message : "Please try again.",
+      toast.error("Unable to login", {
+        description: error instanceof Error ? error.message : "Please try again.",
       });
     } finally {
       setLoading(false);
@@ -80,14 +76,11 @@ export const AuthPanel = ({ onSuccess }: AuthPanelProps) => {
     setLoading(true);
     try {
       await registerUser(values as RegisterPayload);
-      toast({ title: "Account created", description: "You're all set!" });
+      toast.success("Account created", { description: "You're all set!" });
       onSuccess?.();
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Registration failed",
-        description:
-          error instanceof Error ? error.message : "Please try again.",
+      toast.error("Registration failed", {
+        description: error instanceof Error ? error.message : "Please try again.",
       });
     } finally {
       setLoading(false);

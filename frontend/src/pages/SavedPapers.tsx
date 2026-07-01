@@ -43,7 +43,7 @@ import {
   ArrowLeft,
   FileText,
   Globe,
-  Github,
+  Code,
   Trash2,
   ExternalLink,
   Loader2,
@@ -89,7 +89,7 @@ export default function SavedPapers() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["saved-papers"],
+    queryKey: ["savedPapers"],
     queryFn: () => getSavedPapers(accessToken),
     enabled: Boolean(accessToken),
   });
@@ -213,7 +213,7 @@ export default function SavedPapers() {
     },
     onSuccess: () => {
       toast.success("Paper deleted successfully!");
-      queryClient.invalidateQueries({ queryKey: ["saved-papers"] });
+      queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
       setPaperToDelete(null);
       setDeletingPaperId(null);
     },
@@ -248,7 +248,7 @@ export default function SavedPapers() {
     },
     onSuccess: () => {
       toast.success(`${selectedPapers.size} papers deleted successfully!`);
-      queryClient.invalidateQueries({ queryKey: ["saved-papers"] });
+      queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
       setSelectedPapers(new Set());
       setBulkDeleteMode(false);
     },
@@ -282,7 +282,7 @@ export default function SavedPapers() {
         id: context?.toastId,
       });
       // Refetch to update ingestion status immediately
-      queryClient.refetchQueries({ queryKey: ["saved-papers"], type: "active" });
+      queryClient.refetchQueries({ queryKey: ["savedPapers"], type: "active" });
     },
     onError: (error, paper, context) => {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -290,7 +290,7 @@ export default function SavedPapers() {
         id: context?.toastId,
       });
       // Refresh saved papers to update ingestion status
-      queryClient.invalidateQueries({ queryKey: ["saved-papers"] });
+      queryClient.invalidateQueries({ queryKey: ["savedPapers"] });
     },
     onSettled: () => {
       setIngestingPaperId(null);
@@ -418,10 +418,10 @@ export default function SavedPapers() {
 
         {/* Search and Filters */}
         <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <CardContent className="pt-1">
+            <div className="flex flex-wrap gap-3">
               {/* Search */}
-              <div className="space-y-2">
+              <div className="space-y-2 flex-1 min-w-48">
                 <Label htmlFor="search">Search</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -436,7 +436,7 @@ export default function SavedPapers() {
               </div>
 
               {/* Topics Filter */}
-              <div className="space-y-2">
+              <div className="space-y-2 w-48">
                 <Label>Topics</Label>
                 <Select
                   value=""
@@ -481,7 +481,7 @@ export default function SavedPapers() {
               </div>
 
               {/* Years Filter */}
-              <div className="space-y-2">
+              <div className="space-y-2 w-36">
                 <Label>Years</Label>
                 <Select
                   value=""
@@ -522,7 +522,7 @@ export default function SavedPapers() {
               </div>
 
               {/* Sort */}
-              <div className="space-y-2">
+              <div className="space-y-2 w-52">
                 <Label>Sort by</Label>
                 <Select
                   value={`${sortBy}-${sortOrder}`}
@@ -581,17 +581,44 @@ export default function SavedPapers() {
         </Card>
 
         {showTableLoading ? (
-          <Card>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-lg border bg-card overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-[30%]">Title</TableHead>
+                  <TableHead className="w-[10%]">Added</TableHead>
+                  <TableHead className="w-[10%]">Published</TableHead>
+                  <TableHead className="w-[25%]">Summary</TableHead>
+                  <TableHead className="w-[8%] text-center">Status</TableHead>
+                  <TableHead className="w-[17%] text-center">Links</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </TableCell>
+                    <TableCell><Skeleton className="h-4 w-14" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-14" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                    <TableCell className="text-center"><Skeleton className="h-6 w-20 rounded-full mx-auto" /></TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center gap-2">
+                        <Skeleton className="h-6 w-14 rounded-full" />
+                        <Skeleton className="h-6 w-12 rounded-full" />
+                        <Skeleton className="h-6 w-14 rounded-full" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         ) : !savedPapers || savedPapers.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
@@ -792,7 +819,7 @@ export default function SavedPapers() {
                                 variant="outline"
                                 className="cursor-pointer bg-chip-emerald-bg text-chip-emerald border-chip-emerald/30 hover:bg-chip-emerald hover:text-white transition-colors"
                               >
-                                <Github className="w-3 h-3 mr-1" />
+                                <Code className="w-3 h-3 mr-1" />
                                 Code
                               </Badge>
                             </a>

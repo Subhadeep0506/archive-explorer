@@ -29,14 +29,17 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port,
         log_level="info",
-        reload=True,  # Enable auto-reload for development
+        reload=False,  # Disable auto-reload for production
     )
 
     server = uvicorn.Server(config)
 
     if sys.platform == "win32":
-        # Run with the existing loop we created
-        loop.run_until_complete(server.serve())
-        loop.close()
+        try:
+            loop.run_until_complete(server.serve())
+        except KeyboardInterrupt:
+            pass
+        finally:
+            loop.close()
     else:
         server.run()

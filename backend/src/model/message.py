@@ -42,4 +42,4 @@ class Message(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"Message(id={self.id}, session_id={self.session_id}, role={self.role})"
+        return f"Message(id={self.id}, session_id={self.session_id}, user_id={self.user_id})"

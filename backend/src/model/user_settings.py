@@ -20,7 +20,7 @@ class UserSettings(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("user.id"), nullable=False, index=True
+        ForeignKey("user.id"), nullable=False, index=True, unique=True
     )
     location: Mapped[str | None] = mapped_column(String(100), nullable=True)
     custom_summary_instructions: Mapped[str | None] = mapped_column(
@@ -29,6 +29,8 @@ class UserSettings(Base, TimestampMixin):
     usability_analysis_instructions: Mapped[str | None] = mapped_column(
         String, nullable=True
     )
+    summary_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    usability_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
     api_keys_encrypted: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
 
     if TYPE_CHECKING:

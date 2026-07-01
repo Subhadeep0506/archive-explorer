@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, ForeignKey, String, text, Enum as SQLAlchemyEnum
+from sqlalchemy import Boolean, ForeignKey, String, text, Enum as SQLAlchemyEnum, UniqueConstraint
 from typing import TYPE_CHECKING
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..database.db import Base, TimestampMixin
@@ -9,6 +9,9 @@ class Paper(Base, TimestampMixin):
     """SQLAlchemy model for user Papers information."""
 
     __tablename__ = "paper"
+    __table_args__ = (
+        UniqueConstraint("user_id", "arxiv_id", name="uq_paper_user_arxiv"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
@@ -17,7 +20,7 @@ class Paper(Base, TimestampMixin):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     abstract: Mapped[str] = mapped_column(String, nullable=False)
     authors: Mapped[str] = mapped_column(String(512), nullable=False)
-    arxiv_id: Mapped[str] = mapped_column(String(50), nullable=True, unique=True)
+    arxiv_id: Mapped[str] = mapped_column(String(50), nullable=True)
     pdf_url: Mapped[str] = mapped_column(String, nullable=True)
     paper_url: Mapped[str | None] = mapped_column(String, nullable=True)
     github_url: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -36,6 +39,7 @@ class Paper(Base, TimestampMixin):
         Boolean, nullable=False, server_default=text("false"), default=False
     )
     paper_summary: Mapped[str | None] = mapped_column(String, nullable=True)
+    keywords: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
     if TYPE_CHECKING:
         from .user import User  # pragma: no cover

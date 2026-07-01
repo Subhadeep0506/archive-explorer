@@ -7,7 +7,8 @@ from ..database.db import session_pool
 from ..errors import DatabaseConnectionError
 from ..model.paper import Paper
 from ..model.usability import Usability
-from ..schema.paper import PaperCreate, PaperResponse
+from ..model.user_settings import UserSettings
+
 from ..core.logger import SingletonLogger
 from ..core.summary_engine.summary import SummaryEngine
 from ..core.summary_engine.usability import UsabilityEngine
@@ -21,7 +22,7 @@ async def get_summary_and_usability(arxiv_id: str, user_id: int) -> dict:
     try:
         async with session_pool() as session:
             result = await session.execute(
-                select(Paper).where(Paper.arxiv_id == arxiv_id)
+                select(Paper).where(Paper.arxiv_id == arxiv_id, Paper.user_id == user_id)
             )
             paper = result.scalar_one_or_none()
             if not paper:
@@ -58,27 +59,33 @@ async def get_summary_and_usability(arxiv_id: str, user_id: int) -> dict:
 
 async def generate_paper_summary(
     user_id: int,
-    arxiv_id: str = None,
-    pdf_url: str = None,
+    arxiv_id: Optional[str] = None,
+    pdf_url: Optional[str] = None,
     request: Optional[Request] = None,
 ) -> str:
     """Generate a summary for a given paper and optionally update the paper_summary column."""
     try:
-        # API keys are already loaded by load_user_api_keys dependency
         async with session_pool() as session:
             paper = None
 
             if arxiv_id:
                 result = await session.execute(
-                    select(Paper).where(Paper.arxiv_id == arxiv_id)
+                    select(Paper).where(Paper.arxiv_id == arxiv_id, Paper.user_id == user_id)
                 )
                 paper = result.scalar_one_or_none()
                 if not paper:
                     raise HTTPException(status_code=404, detail="Paper not found")
 
-            # Generate the summary
+            effective_pdf_url = pdf_url or (paper.pdf_url if paper else None)
+
+            settings_result = await session.execute(
+                select(UserSettings).where(UserSettings.user_id == user_id)
+            )
+            user_settings = settings_result.scalar_one_or_none()
+            summary_model = user_settings.summary_model if user_settings else None
+
             summary = await SummaryEngine.generate_paper_summary(
-                arxiv_id, pdf_url, request
+                arxiv_id, effective_pdf_url, request, model_name=summary_model
             )
 
             # Only update database if we have a paper record
@@ -97,26 +104,24 @@ async def generate_paper_summary(
 
 async def generate_paper_usability(
     user_id: int,
-    arxiv_id: str = None,
-    pdf_url: str = None,
+    arxiv_id: Optional[str] = None,
+    pdf_url: Optional[str] = None,
     request: Optional[Request] = None,
 ) -> dict:
     """Generate usability metrics for a given paper and store in the usability table."""
     try:
-        # API keys are already loaded by load_user_api_keys dependency
         async with session_pool() as session:
             paper = None
             existing_usability = None
 
             if arxiv_id:
                 result = await session.execute(
-                    select(Paper).where(Paper.arxiv_id == arxiv_id)
+                    select(Paper).where(Paper.arxiv_id == arxiv_id, Paper.user_id == user_id)
                 )
                 paper = result.scalar_one_or_none()
                 if not paper:
                     raise HTTPException(status_code=404, detail="Paper not found")
 
-                # Check if usability record already exists for this user and paper
                 usability_result = await session.execute(
                     select(Usability).where(
                         Usability.user_id == user_id, Usability.paper_id == paper.id
@@ -124,9 +129,16 @@ async def generate_paper_usability(
                 )
                 existing_usability = usability_result.scalar_one_or_none()
 
-            # Generate the usability metrics
+            effective_pdf_url = pdf_url or (paper.pdf_url if paper else None)
+
+            settings_result = await session.execute(
+                select(UserSettings).where(UserSettings.user_id == user_id)
+            )
+            user_settings = settings_result.scalar_one_or_none()
+            usability_model = user_settings.usability_model if user_settings else None
+
             usability_data = await UsabilityEngine.generate_paper_summary(
-                arxiv_id, pdf_url, request
+                arxiv_id, effective_pdf_url, request, model_name=usability_model
             )
 
             # Only save to database if we have a paper record (arxiv_id provided)

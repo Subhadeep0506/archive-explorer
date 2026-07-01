@@ -1,9 +1,36 @@
-import * as CollapsiblePrimitive from "@radix-ui/react-collapsible";
+"use client"
 
-const Collapsible = CollapsiblePrimitive.Root;
+import * as React from "react"
+import * as CollapsiblePrimitive from "@radix-ui/react-collapsible"
 
-const CollapsibleTrigger = CollapsiblePrimitive.CollapsibleTrigger;
+function Collapsible({
+  ...props
+}: React.ComponentProps<typeof CollapsiblePrimitive.Root>) {
+  return <CollapsiblePrimitive.Root data-slot="collapsible" {...props} />
+}
 
-const CollapsibleContent = CollapsiblePrimitive.CollapsibleContent;
+const CollapsibleTrigger = React.forwardRef<
+  React.ElementRef<typeof CollapsiblePrimitive.CollapsibleTrigger>,
+  React.ComponentProps<typeof CollapsiblePrimitive.CollapsibleTrigger>
+>(({ ...props }, ref) => (
+  <CollapsiblePrimitive.CollapsibleTrigger
+    ref={ref}
+    data-slot="collapsible-trigger"
+    {...props}
+  />
+))
+CollapsibleTrigger.displayName = "CollapsibleTrigger"
 
-export { Collapsible, CollapsibleTrigger, CollapsibleContent };
+const CollapsibleContent = React.forwardRef<
+  React.ElementRef<typeof CollapsiblePrimitive.CollapsibleContent>,
+  React.ComponentProps<typeof CollapsiblePrimitive.CollapsibleContent>
+>(({ ...props }, ref) => (
+  <CollapsiblePrimitive.CollapsibleContent
+    ref={ref}
+    data-slot="collapsible-content"
+    {...props}
+  />
+))
+CollapsibleContent.displayName = "CollapsibleContent"
+
+export { Collapsible, CollapsibleTrigger, CollapsibleContent }

@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, Query, UploadFile, File, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, UploadFile, File, Form
 from typing import List
 
 from ..controller import paper as paper_controller
-from ..schema.paper import PaperCreate, PaperResponse
+from ..controller.recommendation_controller import get_recommendations_for_paper
+from ..schema.paper import PaperCreate, PaperResponse, RecommendationsResponse
 from ..lib.auth import get_current_user
 
 
@@ -15,6 +16,18 @@ async def get_saved_papers(user_id: int = Depends(get_current_user)):
     return await paper_controller.get_all_papers(user_id)
 
 
+@router.get("/{paper_id}/recommendations", response_model=RecommendationsResponse)
+async def get_paper_recommendations(
+    paper_id: int,
+    limit: int = Query(default=10, ge=1, le=50),
+    user_id: int = Depends(get_current_user),
+):
+    """Get hybrid recommendations (similar, on-topic, by-author) for a paper."""
+    return await get_recommendations_for_paper(
+        paper_id=paper_id, user_id=user_id, limit=limit
+    )
+
+
 @router.get("/{paper_id}", response_model=PaperResponse)
 async def get_saved_paper(paper_id: int, user_id: int = Depends(get_current_user)):
     """Retrieve a specific saved paper by ID for the current user."""
@@ -22,13 +35,18 @@ async def get_saved_paper(paper_id: int, user_id: int = Depends(get_current_user
 
 
 @router.post("/", response_model=PaperResponse)
-async def add_paper(payload: PaperCreate, user_id: int = Depends(get_current_user)):
-    """Add a paper; generates and stores its thumbnail automatically."""
-    return await paper_controller.create_paper(user_id, payload)
+async def add_paper(
+    payload: PaperCreate,
+    background_tasks: BackgroundTasks,
+    user_id: int = Depends(get_current_user),
+):
+    """Add a paper; generates thumbnail and extracts keywords in the background."""
+    return await paper_controller.create_paper(user_id, payload, background_tasks)
 
 
 @router.post("/upload", response_model=PaperResponse)
 async def upload_paper_pdf(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: str = Form(...),
     abstract: str = Form(...),
@@ -52,6 +70,7 @@ async def upload_paper_pdf(
         published_date=published_date,
         institution=institution,
         date_published=date_published,
+        background_tasks=background_tasks,
     )
 
 

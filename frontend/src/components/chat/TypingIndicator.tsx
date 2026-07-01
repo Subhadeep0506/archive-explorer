@@ -13,7 +13,7 @@ export function TypingIndicator() {
           <div className="flex gap-1">
             <div
               className={cn(
-                "w-2 h-2 rounded-full bg-chip-violet",
+                "w-2 h-2 rounded-full bg-primary",
                 "animate-bounce",
               )}
               style={{
@@ -23,7 +23,7 @@ export function TypingIndicator() {
             />
             <div
               className={cn(
-                "w-2 h-2 rounded-full bg-chip-violet",
+                "w-2 h-2 rounded-full bg-primary",
                 "animate-bounce",
               )}
               style={{
@@ -33,7 +33,7 @@ export function TypingIndicator() {
             />
             <div
               className={cn(
-                "w-2 h-2 rounded-full bg-chip-violet",
+                "w-2 h-2 rounded-full bg-primary",
                 "animate-bounce",
               )}
               style={{
@@ -42,7 +42,7 @@ export function TypingIndicator() {
               }}
             />
           </div>
-          <span className="text-xs text-muted-foreground ml-1">
+          <span className="text-xs text-foreground font-medium ml-1">
             Generating response...
           </span>
         </div>

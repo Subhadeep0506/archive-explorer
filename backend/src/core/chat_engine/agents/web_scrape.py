@@ -27,9 +27,7 @@ async def web_crawl_node(state: AgentState):
         )
         search_results = await web_search_node(
             query=f"{state['query']}. Article: {state['paper_title']} by {state['paper_authors']}",
-            num=math.ceil(
-                state["top_k"] * 0.6
-            ),  # Adjusted to 60% of top_k for web search results
+            num=state["top_k"] // 2,  # Adjusted to 60% of top_k for web search results
             topic=state["web_search_topic"],
             request=state.get("request"),
         )

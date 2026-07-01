@@ -2,6 +2,7 @@ import tiktoken
 from typing import Optional
 from fastapi import Request
 
+from qdrant_client import models
 from ..vectorstore import VectorStoreFactory
 from ..embedding import EmbeddingFactory
 from ..llm import LLMFactory
@@ -15,26 +16,49 @@ logger = SingletonLogger().get_logger()
 class SummaryEngine:
     """SummaryEngine class for generating summaries of papers."""
 
+    DEFAULT_MODEL = "groq/qwen3-32b"
+
     @staticmethod
     async def generate_paper_summary(
-        arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None
+        arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None,
+        model_name: Optional[str] = None,
     ) -> str:
         try:
             embedding = EmbeddingFactory.build_embedding_model(request=request)
             vector_store = VectorStoreFactory.build_vector_store(
                 embedding_model=embedding
             )
+            full_content = ""
+
             if arxiv_id:
+                filter_condition = models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="metadata.paper_id",
+                            match=models.MatchValue(value=arxiv_id),
+                        )
+                    ]
+                )
                 retriever = vector_store.as_retriever(
-                    search_kwargs={"filter": {"paper_id": arxiv_id}, "fetch_k": 9999}
+                    search_kwargs={"filter": filter_condition, "k": 200}
                 )
                 docs = await retriever._aget_relevant_documents(
                     query="*", run_manager=None
                 )
                 sorted_docs = await SummaryEngine._sort_docs(docs)
                 full_content = "\n\n".join([doc.page_content for doc in sorted_docs])
+
+                if not full_content.strip() and pdf_url:
+                    logger.info(
+                        "No indexed content found for paper %s. Falling back to PDF URL.",
+                        arxiv_id,
+                    )
+                    full_content = await load_pdf_content(pdf_url)
             elif pdf_url:
                 full_content = await load_pdf_content(pdf_url)
+
+            if not full_content.strip():
+                raise ValueError("No paper content available for summary generation")
 
             encoding = tiktoken.get_encoding("cl100k_base")
             tokens = encoding.encode(full_content)
@@ -50,15 +74,15 @@ class SummaryEngine:
                     chunk_tokens = tokens[i : i + token_limit]
                     chunk_content = encoding.decode(chunk_tokens)
                     summary = await SummaryEngine.__generate_summary(
-                        chunk_content, request
+                        chunk_content, request, model_name
                     )
                     cumulative_summary += summary + "\n\n"
                 final_summary = await SummaryEngine.__generate_summary(
-                    cumulative_summary, request
+                    cumulative_summary, request, model_name
                 )
             else:
                 final_summary = await SummaryEngine.__generate_summary(
-                    full_content, request
+                    full_content, request, model_name
                 )
             return final_summary
         except Exception as e:
@@ -67,12 +91,13 @@ class SummaryEngine:
 
     @classmethod
     async def __generate_summary(
-        cls, content: str, request: Optional[Request] = None
+        cls, content: str, request: Optional[Request] = None,
+        model_name: Optional[str] = None,
     ) -> str:
         """Generate a summary of the given content."""
         try:
             llm = LLMFactory.build_llm(
-                model_name="groq/qwen3-32b",
+                model_name=model_name or cls.DEFAULT_MODEL,
                 max_tokens=4096,
                 reasoning="hidden",
                 request=request,
@@ -85,7 +110,13 @@ class SummaryEngine:
                 {"role": "user", "content": content},
             ]
             response = await llm.ainvoke(messages)
-            return response.content
+            if isinstance(response.content, str):
+                return response.content
+            else:
+                if isinstance(response.content[0], str):
+                    return str(response.content[0])
+                else:
+                    return str(response.content[0]["text"])
         except Exception as e:
             logger.error(f"Error in __generate_summary: {str(e)}")
             raise e

@@ -1,13 +1,17 @@
+import asyncio
+
+from qdrant_client import models
 from ..embedding import EmbeddingFactory
 from ..vectorstore import VectorStoreFactory
-from langchain_pinecone import PineconeVectorStore
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_pymupdf4llm import PyMuPDF4LLMLoader
 from typing import List, Optional
 from fastapi import Request
+from ...lib.qdrant import get_qdrant_client, CHUNKS_COLLECTION
 from ...core.logger import SingletonLogger
 
 logger = SingletonLogger().get_logger()
+
 
 class IngestionEngine:
     @staticmethod
@@ -16,7 +20,7 @@ class IngestionEngine:
     ):
         try:
             embedding = EmbeddingFactory.build_embedding_model(embedding_model, request=request)
-            vector_store: PineconeVectorStore = VectorStoreFactory.build_vector_store(
+            vector_store = VectorStoreFactory.build_vector_store(
                 embedding_model=embedding
             )
             loader = PyMuPDF4LLMLoader(
@@ -37,12 +41,20 @@ class IngestionEngine:
     @staticmethod
     async def delete_paper_using_paper_ids(paper_ids: List[str], request: Optional[Request] = None):
         try:
-            vector_store: PineconeVectorStore = VectorStoreFactory.build_vector_store(
-                embedding_model=EmbeddingFactory.build_embedding_model(
-                    "embed-multilingual-v3.0", request=request
-                )
+            client = get_qdrant_client()
+            filter_condition = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="metadata.paper_id",
+                        match=models.MatchAny(any=paper_ids),
+                    )
+                ]
             )
-            await vector_store.adelete(filter={"paper_id": {"$in": paper_ids}})
+            await asyncio.to_thread(
+                client.delete,
+                collection_name=CHUNKS_COLLECTION,
+                points_selector=models.FilterSelector(filter=filter_condition),
+            )
         except Exception as e:
             logger.error(f"Error deleting paper: {e}")
             raise e

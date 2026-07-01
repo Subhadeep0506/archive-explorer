@@ -1,7 +1,12 @@
 import { useMemo } from "react";
-import { AlertCircle, Info } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PdfViewer } from "@/components/ui/pdf-viewer";
+import { API_BASE_URL } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import type { Paper } from "@/types/paper";
+
+const ARXIV_PDF_RE = /^https?:\/\/arxiv\.org\/pdf\/(\d{4}\.\d{4,5}(?:v\d+)?)/;
 
 interface PaperPdfViewerProps {
   paper: Paper;
@@ -9,8 +14,18 @@ interface PaperPdfViewerProps {
 }
 
 export function PaperPdfViewer({ paper, height = 700 }: PaperPdfViewerProps) {
-  const fileUrl =
-    paper.pdfUrl && paper.pdfUrl !== "#" ? paper.pdfUrl : undefined;
+  const { accessToken } = useAuth();
+
+  const fileUrl = useMemo(() => {
+    const raw = paper.pdfUrl && paper.pdfUrl !== "#" ? paper.pdfUrl : undefined;
+    if (!raw) return undefined;
+    const match = raw.match(ARXIV_PDF_RE);
+    if (match) {
+      const proxyUrl = `${API_BASE_URL}/arxiv/pdf/${match[1]}`;
+      return accessToken ? `${proxyUrl}?token=${accessToken}` : proxyUrl;
+    }
+    return raw;
+  }, [paper.pdfUrl, accessToken]);
 
   if (!fileUrl) {
     return (
@@ -40,13 +55,7 @@ export function PaperPdfViewer({ paper, height = 700 }: PaperPdfViewerProps) {
       className="rounded-lg border bg-card overflow-hidden"
       style={{ height: height }}
     >
-      <iframe
-        src={fileUrl}
-        width="100%"
-        height="100%"
-        style={{ border: "none" }}
-        title={`PDF Viewer for ${paper.title}`}
-      />
+      <PdfViewer url={fileUrl} className="h-full" />
     </div>
   );
 }

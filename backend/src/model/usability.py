@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, ForeignKey, String, Float, JSON, text
+from sqlalchemy import Boolean, ForeignKey, String, Float, JSON, text, UniqueConstraint
 from typing import TYPE_CHECKING, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..database.db import Base, TimestampMixin
@@ -9,6 +9,9 @@ class Usability(Base, TimestampMixin):
     """SQLAlchemy model for user Paper Usability information."""
 
     __tablename__ = "usability"
+    __table_args__ = (
+        UniqueConstraint("user_id", "paper_id", name="uq_usability_user_paper"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(

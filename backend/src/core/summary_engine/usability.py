@@ -5,6 +5,7 @@ from fastapi import Request
 from langchain.agents import create_agent
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, List
+from qdrant_client import models
 from langchain_core.documents import Document
 from ..vectorstore import VectorStoreFactory
 from ..embedding import EmbeddingFactory
@@ -37,14 +38,21 @@ class UsabilitySchema(BaseModel):
         ge=0.0,
         description="Composite impact based on explained innovation over domains. Give detailed overall score with dense value. E.g 0.83",
     )
+    impact_score_description: str = Field(
+        default="",
+        description="Short description on how this score explains the impact score; e.g. 'Strong fit for cost-efficient inference deployment', 'Memory efficient Agentic RL training; Domain agnostic', 'Can be used to optimize finance applications; needs several manual effort'"
+    )
 
 
 class UsabilityEngine:
     """UsabilityEngine class for generating summaries of papers."""
 
+    DEFAULT_MODEL = "groq/qwen3-32b"
+
     @staticmethod
     async def generate_paper_summary(
-        arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None
+        arxiv_id: str = None, pdf_url: str = None, request: Optional[Request] = None,
+        model_name: Optional[str] = None,
     ) -> dict:
         """Generate a summary of the paper's usability, applicability, and reproducibility based on its content.
 
@@ -58,7 +66,7 @@ class UsabilityEngine:
             e: If any other error occurs.
 
         Returns:
-            dict: A dictionary containing the usability summary with keys 'domain_applicability', 'reproducibility_score', 'new_tech_applicability', and 'impact_score'.
+            dict: A dictionary containing the usability summary with keys 'domain_applicability', 'reproducibility_score', 'new_tech_applicability', 'impact_score' and 'impact_score_description'.
         """
         try:
             embedding = EmbeddingFactory.build_embedding_model(request=request)
@@ -66,7 +74,7 @@ class UsabilityEngine:
                 embedding_model=embedding
             )
             llm = LLMFactory.build_llm(
-                model_name="groq/qwen3-32b",
+                model_name=model_name or UsabilityEngine.DEFAULT_MODEL,
                 max_tokens=4096,
                 reasoning="hidden",
                 request=request,
@@ -76,17 +84,37 @@ class UsabilityEngine:
                 model=llm,
                 response_format=UsabilitySchema,
             )
+            full_content = ""
+
             if arxiv_id:
+                filter_condition = models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="metadata.paper_id",
+                            match=models.MatchValue(value=arxiv_id),
+                        )
+                    ]
+                )
                 retriever = vector_store.as_retriever(
-                    search_kwargs={"filter": {"paper_id": arxiv_id}, "fetch_k": 9999}
+                    search_kwargs={"filter": filter_condition, "k": 200}
                 )
                 docs: List[Document] = await retriever._aget_relevant_documents(
                     query="*", run_manager=None
                 )
                 sorted_docs = await UsabilityEngine._sort_docs(docs)
                 full_content = "\n\n".join([doc.page_content for doc in sorted_docs])
+
+                if not full_content.strip() and pdf_url:
+                    logger.info(
+                        "No indexed content found for paper %s usability. Falling back to PDF URL.",
+                        arxiv_id,
+                    )
+                    full_content = await load_pdf_content(pdf_url)
             elif pdf_url:
                 full_content = await load_pdf_content(pdf_url)
+
+            if not full_content.strip():
+                raise ValueError("No paper content available for usability generation")
 
             final_usability_json = await UsabilityEngine.__generate_summary(
                 agent, full_content
