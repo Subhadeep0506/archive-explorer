@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from qdrant_client.http.models import PointStruct, Document
 
 from ...model.arxiv_catalog import ArxivCatalog
-from ...lib.qdrant import get_qdrant_client, CATALOG_COLLECTION, CATALOG_EMBED_MODEL
+from ...lib.qdrant import CATALOG_EMBED_MODEL, get_qdrant_client, CATALOG_COLLECTION, CATALOG_EMBED_KEY
 from ...core.logger import SingletonLogger
 
 logger = SingletonLogger().get_logger()
@@ -206,7 +206,7 @@ async def upsert_catalog_to_qdrant(
                             "pdf_url": row.pdf_url,
                         },
                         vector={
-                            CATALOG_EMBED_MODEL: Document(
+                            CATALOG_EMBED_KEY: Document(
                                 text=f"{row.title} {row.abstract}",
                                 model=CATALOG_EMBED_MODEL,
                             )

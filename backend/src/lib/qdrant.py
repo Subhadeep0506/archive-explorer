@@ -9,6 +9,7 @@ logger = SingletonLogger().get_logger()
 CATALOG_COLLECTION = "arxiv-papers"
 CHUNKS_COLLECTION = "paper-chunks"
 CATALOG_EMBED_MODEL = "intfloat/multilingual-e5-small"
+CATALOG_EMBED_KEY = "catalog_embedding"
 CHUNKS_EMBED_DIM = 1024
 
 _client: QdrantClient | None = None
@@ -17,10 +18,11 @@ _client: QdrantClient | None = None
 def _create_client() -> QdrantClient:
     return QdrantClient(
         url=os.environ["QDRANT_URI"],
-        # port=int(os.environ.get("QDRANT_PORT", "6333")),
+        port=int(os.environ.get("QDRANT_PORT", "6333")),
         api_key=os.environ["QDRANT_API_KEY"],
         cloud_inference=True,
         check_compatibility=False,
+        timeout=120,
     )
 
 
@@ -123,7 +125,7 @@ def ensure_collections_exist() -> None:
         client.create_collection(
             collection_name=CATALOG_COLLECTION,
             vectors_config={
-                CATALOG_EMBED_MODEL: models.VectorParams(
+                CATALOG_EMBED_KEY: models.VectorParams(
                     size=384,
                     distance=models.Distance.COSINE,
                 )

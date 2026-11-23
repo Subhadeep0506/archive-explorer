@@ -44,7 +44,7 @@ Two stores: **PostgreSQL** for user data and catalog metadata (feed), **Qdrant C
 
 **Thumbnails:** Client-side React components styled like HuggingFace model cards. No image generation or storage.
 
-**Hybrid Recommendations** (per senior dev feedback):
+**Hybrid Recommendations**:
 
 | Signal | What it finds | Query type |
 |---|---|---|

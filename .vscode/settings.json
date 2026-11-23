@@ -15,5 +15,6 @@
     "workbench.iconTheme": "material-icon-theme",
     "window.autoDetectColorScheme": true,
     "workbench.layoutControl.enabled": false,
-    "workbench.productIconTheme": "fluent-icons"
+    "workbench.productIconTheme": "fluent-icons",
+    "python-envs.defaultEnvManager": "ms-python.python:venv"
 }

@@ -7,7 +7,7 @@ from qdrant_client.http.models import Document
 
 from qdrant_client.http.exceptions import ResponseHandlingException
 
-from ...lib.qdrant import get_qdrant_client, reset_qdrant_client, CATALOG_COLLECTION, CATALOG_EMBED_MODEL
+from ...lib.qdrant import get_qdrant_client, reset_qdrant_client, CATALOG_COLLECTION, CATALOG_EMBED_MODEL, CATALOG_EMBED_KEY
 from ...core.logger import SingletonLogger
 
 logger = SingletonLogger().get_logger()
@@ -62,7 +62,7 @@ async def get_similar_papers(
             text=f"{title} {abstract}",
             model=CATALOG_EMBED_MODEL,
         ),
-        using=CATALOG_EMBED_MODEL,
+        using=CATALOG_EMBED_KEY,
         limit=top_k + len(exclude_ids),
         with_payload=True,
     )
@@ -84,7 +84,7 @@ async def get_similar_on_topic(
             text=f"{title} {abstract}",
             model=CATALOG_EMBED_MODEL,
         ),
-        using=CATALOG_EMBED_MODEL,
+        using=CATALOG_EMBED_KEY,
         query_filter=models.Filter(
             must=[
                 models.FieldCondition(
@@ -168,7 +168,7 @@ async def get_feed_recommendations(
             text=combined,
             model=CATALOG_EMBED_MODEL,
         ),
-        using=CATALOG_EMBED_MODEL,
+        using=CATALOG_EMBED_KEY,
         query_filter=models.Filter(must=category_must) if category_must else None,
         limit=fetch_count,
         with_payload=True,
@@ -194,7 +194,7 @@ async def search_catalog(
             text=query,
             model=CATALOG_EMBED_MODEL,
         ),
-        using=CATALOG_EMBED_MODEL,
+        using=CATALOG_EMBED_KEY,
         limit=fetch_count,
         with_payload=True,
     )

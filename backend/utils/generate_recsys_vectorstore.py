@@ -5,6 +5,7 @@ _ = load_dotenv()
 
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.models import PointStruct, Document
+from ..src.lib.qdrant import CATALOG_COLLECTION, CATALOG_EMBED_MODEL, CATALOG_EMBED_KEY
 
 print("Initializing Qdrant client...")
 client = QdrantClient(
@@ -50,9 +51,9 @@ points = [
             "keywords": "",
         },
         vector={
-            "intfloat/multilingual-e5-small": Document(
+            CATALOG_EMBED_KEY: Document(
                 text=f"{paper['title']} {paper['abstract']}",
-                model="intfloat/multilingual-e5-small",
+                model=CATALOG_EMBED_MODEL,
             )
         },
     )
@@ -67,7 +68,7 @@ print("Creating collection...")
 client.create_collection(
     collection_name="test-col",
     vectors_config={
-        "intfloat/multilingual-e5-small": models.VectorParams(
+        CATALOG_EMBED_KEY: models.VectorParams(
             size=384,
             distance=models.Distance.COSINE,
         )
@@ -88,9 +89,9 @@ points = client.query_points(
     collection_name="test-col",
     query=Document(
         text="transformer models for natural language processing",
-        model="intfloat/multilingual-e5-small",
+        model=CATALOG_EMBED_MODEL,
     ),
-    using="intfloat/multilingual-e5-small",
+    using=CATALOG_EMBED_KEY,
 )
 
 print(points)
