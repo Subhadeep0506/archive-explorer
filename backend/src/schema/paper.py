@@ -54,6 +54,17 @@ class PaperResponse(BaseModel):
     paper_source: Optional[str] = "arxiv"
     keywords: Optional[str] = None
 
+class PaperTopicsResponse(BaseModel):
+    title: str
+    abstract: str
+    authors: str
+    categories: Optional[str] = None
+    primary_category: Optional[str] = None
+    published_date: Optional[str] = None
+    paper_url: Optional[str] = None
+    pdf_url: Optional[str] = None
+    score: Optional[float] = None
+    final_score: Optional[float] = None
 
 class BulkDeletePapers(BaseModel):
     paper_ids: list[int]

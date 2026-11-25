@@ -2,8 +2,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, UploadFile, File
 from typing import List
 
 from ..controller import paper as paper_controller
-from ..controller.recommendation_controller import get_recommendations_for_paper
-from ..schema.paper import PaperCreate, PaperResponse, RecommendationsResponse
+from ..controller.recommendation_controller import get_recommendations_for_paper, get_similar_on_topic_controller
+from ..schema.paper import PaperCreate, PaperResponse, PaperTopicsResponse, RecommendationsResponse
 from ..lib.auth import get_current_user
 
 
@@ -27,6 +27,11 @@ async def get_paper_recommendations(
         paper_id=paper_id, user_id=user_id, limit=limit
     )
 
+@router.get("/similar-on-topic", response_model=list[PaperTopicsResponse])
+async def get_similar_on_topic(
+):
+    """Get papers similar to the specified paper and on the same topic."""
+    return await get_similar_on_topic_controller()
 
 @router.get("/{paper_id}", response_model=PaperResponse)
 async def get_saved_paper(paper_id: int, user_id: int = Depends(get_current_user)):

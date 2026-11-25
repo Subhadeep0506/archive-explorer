@@ -155,3 +155,13 @@ async def get_recommendations_for_paper(
         on_this_topic=[RecommendationItem(**p) for p in on_topic[:limit]],
         from_these_authors=[RecommendationItem(**p) for p in by_authors[:limit]],
     )
+
+
+async def get_similar_on_topic_controller():
+    results = await get_similar_papers(
+        title="Sample Title",
+        abstract="Sample Abstract",
+        exclude_ids=[],
+        top_k=3
+    )
+    return results
